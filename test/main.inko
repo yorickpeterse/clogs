@@ -1,0 +1,11 @@
+import std.env
+import std.test.(Filter, Tests)
+
+class async Main {
+  fn async main {
+    let tests = Tests.new
+
+    tests.filter = Filter.from_string(env.arguments.opt(0).unwrap_or(''))
+    tests.run
+  }
+}

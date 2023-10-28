@@ -1,0 +1,68 @@
+import optparse.(Help, Options)
+import std.env.(arguments)
+import std.stdio.(STDERR, STDOUT)
+import std.sys.(exit)
+
+let VERSION = '0.1.0'
+
+fn error(message: String) -> Never {
+  STDERR
+    .new
+    .print("error: {message}\n\nFor more information, run 'clogs --help'")
+
+  exit(1)
+}
+
+class async Main {
+  fn async main {
+    let opts = Options.new
+
+    opts.flag('h', 'help', 'Show this help message')
+    opts.flag('v', 'version', 'Show the version')
+    opts.single('c', 'config', 'CONFIG', 'Use the specified configuration file')
+
+    let matches = match opts.parse(arguments) {
+      case Ok(v) -> v
+      case Error(err) -> error(err.to_string)
+    }
+
+    if matches.contains?('help') {
+      let help = Help
+        .new('clogs')
+        .section('Examples')
+        .line(
+          'clogs 1.2.3                      Generate a changelog for version 1.2.3'
+        )
+        .line(
+          'clogs 1.2.3 --config foo.json    Use a custom configuration file'
+        )
+        .section('Options')
+        .options(opts)
+        .to_string
+
+      STDOUT.new.write_string(help)
+      return
+    }
+
+    if matches.contains?('version') {
+      STDOUT.new.print("clogs {VERSION}")
+      return
+    }
+
+    if matches.remaining.empty? {
+      error('you must specify a version to generate a changelog for')
+    }
+
+    let version = matches.remaining.get(0)
+
+    # TODO: parse the version
+    # TODO: get the previous version
+    # TODO: get the previous version tag
+    # TODO: generate the range A of commits including the Changelog trailer
+    # TODO: generate a range B of revert commits
+    # TODO: remove commits from A that are reverted in B
+    # TODO: generate Markdown
+    # TODO: create CHANGELOG.md if needed
+    # TODO: write to CHANGELOG.md
+  }
+}

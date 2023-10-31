@@ -1,0 +1,48 @@
+import clogs.version.Version
+import std.cmp.Ordering
+import std.fmt.(fmt)
+import std.test.Tests
+
+fn pub tests(t: mut Tests) {
+  t.test('Version.parse') fn (t) {
+    t.equal(Version.parse('1.2.3'), Option.Some(Version.new(1, 2, 3)))
+    t.equal(Version.parse('1.2.0'), Option.Some(Version.new(1, 2, 0)))
+    t.equal(
+      Version.parse('999999.999999.999999'),
+      Option.Some(Version.new(999999, 999999, 999999))
+    )
+
+    t.equal(Version.parse('1.2'), Option.None)
+    t.equal(Version.parse('1'), Option.None)
+    t.equal(Version.parse(''), Option.None)
+    t.equal(Version.parse('1.2.03'), Option.None)
+    t.equal(Version.parse('1.2.+3'), Option.None)
+    t.equal(Version.parse('1.2.-3'), Option.None)
+    t.equal(Version.parse('1.2.3-beta1'), Option.None)
+    t.equal(Version.parse('999999.999999.9999991'), Option.None)
+  }
+
+  t.test('Version.==') fn (t) {
+    t.equal(Version.new(1, 2, 3), Version.new(1, 2, 3))
+    t.not_equal(Version.new(1, 2, 3), Version.new(1, 2, 0))
+    t.not_equal(Version.new(1, 2, 3), Version.new(1, 0, 3))
+    t.not_equal(Version.new(1, 2, 3), Version.new(0, 2, 3))
+    t.not_equal(Version.new(1, 2, 3), Version.new(0, 0, 0))
+  }
+
+  t.test('Version.cmp') fn (t) {
+    t.equal(Version.new(0, 0, 0).cmp(Version.new(0, 0, 0)), Ordering.Equal)
+    t.equal(Version.new(0, 0, 1).cmp(Version.new(0, 0, 0)), Ordering.Greater)
+    t.equal(Version.new(0, 1, 0).cmp(Version.new(0, 0, 0)), Ordering.Greater)
+    t.equal(Version.new(1, 0, 0).cmp(Version.new(0, 0, 0)), Ordering.Greater)
+    t.equal(Version.new(0, 0, 1).cmp(Version.new(0, 0, 2)), Ordering.Less)
+    t.equal(Version.new(0, 1, 0).cmp(Version.new(0, 2, 0)), Ordering.Less)
+    t.equal(Version.new(1, 0, 0).cmp(Version.new(2, 0, 0)), Ordering.Less)
+    t.equal(Version.new(1, 2, 3).cmp(Version.new(1, 2, 0)), Ordering.Greater)
+    t.equal(Version.new(1, 2, 3).cmp(Version.new(1, 2, 4)), Ordering.Less)
+  }
+
+  t.test('Version.fmt') fn (t) {
+    t.equal(fmt(Version.new(1, 2, 3)), 'Version(1, 2, 3)')
+  }
+}

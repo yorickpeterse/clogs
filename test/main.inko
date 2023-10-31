@@ -1,9 +1,13 @@
 import std.env
 import std.test.(Filter, Tests)
 
+import clogs.test_version
+
 class async Main {
   fn async main {
     let tests = Tests.new
+
+    test_version.tests(tests)
 
     tests.filter = Filter.from_string(env.arguments.opt(0).unwrap_or(''))
     tests.run

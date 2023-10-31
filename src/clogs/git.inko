@@ -1,0 +1,15 @@
+# Types and methods for working with Git repositories.
+import std.fs.path.Path
+import std.io.Error
+
+class Repository {
+  let @path: Path
+
+  fn static new(path: Path) -> Option[Repository] {
+    if path.directory? {
+      Option.Some(Repository { @path = path })
+    } else {
+      Option.None
+    }
+  }
+}

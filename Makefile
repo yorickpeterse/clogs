@@ -6,7 +6,8 @@ build:
 	inko build -o ./build/clogs
 
 release/version: .check-version
-	sed -E -i -e "s/^let VERSION = '([^']+)'$$/let VERSION = '${VERSION}'/" src/main.inko
+	sed -E -i -e "s/^let VERSION = '([^']+)'$$/let VERSION = '${VERSION}'/" \
+		src/clogs/cli.inko
 
 release/changelog: .check-version build
 	./build/clogs "${VERSION}"

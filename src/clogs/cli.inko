@@ -1,0 +1,72 @@
+import clogs.git.Repository
+import clogs.version.Version
+import optparse.(Help, Options)
+import std.fs.path.Path
+import std.io.Write
+import std.sys.(exit)
+
+let VERSION = '0.1.0'
+
+fn pub run(
+  arguments: Array[String],
+  working_directory: Path,
+  output: mut Write,
+) -> Result[Nil, String] {
+  let opts = Options.new
+
+  opts.flag('h', 'help', 'Show this help message')
+  opts.flag('v', 'version', 'Show the version')
+  opts.single('c', 'config', 'CONFIG', 'Use the specified configuration file')
+
+  let matches = match opts.parse(arguments) {
+    case Ok(v) -> v
+    case Error(err) -> return Result.Error(err.to_string)
+  }
+
+  if matches.contains?('help') {
+    let help = Help
+      .new('clogs')
+      .usage('[VERSION] [OPTIONS]')
+      .section('Examples')
+      .line(
+        'clogs 1.2.3                      Generate a changelog for version 1.2.3'
+      )
+      .line(
+        'clogs 1.2.3 --config foo.json    Use a custom configuration file'
+      )
+      .section('Options')
+      .options(opts)
+      .to_string
+
+    output.write_string(help).unwrap
+    return Result.Ok(nil)
+  }
+
+  if matches.contains?('version') {
+    output.print("clogs {VERSION}").unwrap
+    return Result.Ok(nil)
+  }
+
+  let version =
+    match matches.remaining.opt(0).then(fn (v) { Version.parse(v) }) {
+      case Some(v) -> v
+      case _ -> return Result.Error('a version in the format X.Y.Z is required')
+    }
+
+  let repo = match Repository.new(working_directory) {
+    case Some(v) -> v
+    case _ -> return Result
+      .Error("the current working directory isn't a Git repository")
+  }
+
+  Result.Ok(nil)
+
+  # TODO: list all versions according to the tags
+  # TODO: get the previous version, its tag, and its commit
+  # TODO: generate the range A of commits including the Changelog trailer
+  # TODO: generate a range B of revert commits
+  # TODO: remove commits from A that are reverted in B
+  # TODO: generate Markdown
+  # TODO: create CHANGELOG.md if needed
+  # TODO: write to CHANGELOG.md
+}

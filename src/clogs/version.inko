@@ -1,0 +1,65 @@
+# Types for parsing and representing version numbers.
+import std.cmp.(Compare, Equal, Ordering)
+import std.fmt.(Format as FormatTrait, Formatter)
+import std.int.Format
+
+# A type that represents a version number, per semantic versioning
+# (https://semver.org/).
+class Version {
+  let @major: Int
+  let @minor: Int
+  let @patch: Int
+
+  fn static parse(input: String) -> Option[Version] {
+    # Just in case somebody tries to be funny and provide a really long version
+    # number, we disallow inputs beyond this size. This allows version numbers
+    # up to (and including) 999999.999999.999999, which should be more than
+    # enough.
+    if input.size > 20 { return Option.None }
+
+    let chunks = input
+      .split('.')
+      .select_map fn (v) {
+        # Versions such as 1.2.0003 or 1.+2.3 are nonsensical, so we disallow
+        # them.
+        if v.size > 1 and v.starts_with?('0') { return Option.None }
+        if v.starts_with?('+') or v.starts_with?('-') { return Option.None }
+        Int.parse(v, Format.Decimal)
+      }
+      .to_array
+
+    if chunks.size == 3 {
+      Option.Some(new(chunks.get(0), chunks.get(1), chunks.get(2)))
+    } else {
+      Option.None
+    }
+  }
+
+  fn static new(major: Int, minor: Int, patch: Int) -> Version {
+    Version { @major = major, @minor = minor, @patch = patch }
+  }
+}
+
+impl Equal[Version] for Version {
+  fn pub ==(other: ref Version) -> Bool {
+    @major == other.major and @minor == other.minor and @patch == other.patch
+  }
+}
+
+impl Compare[Version] for Version {
+  fn pub cmp(other: ref Version) -> Ordering {
+    match @major.cmp(other.major) {
+      case Equal -> match @minor.cmp(other.minor) {
+        case Equal -> @patch.cmp(other.patch)
+        case other -> other
+      }
+      case other -> other
+    }
+  }
+}
+
+impl FormatTrait for Version {
+  fn pub fmt(formatter: mut Formatter) {
+    formatter.tuple('Version').field(@major).field(@minor).field(@patch).finish
+  }
+}

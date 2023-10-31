@@ -59,6 +59,8 @@ fn pub run(
       .Error("the current working directory isn't a Git repository")
   }
 
+  repo.tag_names.unwrap.each fn (name) { output.print(name) }
+
   Result.Ok(nil)
 
   # TODO: list all versions according to the tags

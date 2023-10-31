@@ -1,6 +1,26 @@
 # Types and methods for working with Git repositories.
 import std.fs.path.Path
-import std.io.Error
+import std.io
+import std.iter
+import std.string.ToString
+import std.sys.(Command, Stream)
+
+# TODO: the user doesn't actually care whether we ran `git tag` or used
+# something like libgit2, so why do we expose that in the error message?
+class Error {
+  let @command: String
+  let @message: String
+
+  fn static new(command: String, message: String) -> Error {
+    Error { @command = command, @message = message }
+  }
+}
+
+impl ToString for Error {
+  fn pub to_string -> String {
+    "'git {@command}' failed: {@message}"
+  }
+}
 
 class Repository {
   let @path: Path
@@ -10,6 +30,61 @@ class Repository {
       Option.Some(Repository { @path = path })
     } else {
       Option.None
+    }
+  }
+
+  fn tag_names -> Result[iter.Stream[String], String] {
+    run('tag', []).map fn (out) { out.split("\n") }
+  }
+
+  # errors:
+  #
+  # 1. spawn
+  # 1. wait
+  # 1. read STDOUT
+  # 1. read STDERR
+  # 1. exit code isn't zero
+  #
+  # General error format: `git [COMMAND] failed: [REASON]`
+  #
+  # The user doesn't care whether reading from STDOUT or STDERR failed, that's
+  # too "precise"; they just want to know "did it work, if not why".
+  #
+  # wait and spawn errors we can group as "the program failed to run". The
+  # read errors can be grouped into "failed to read output".
+  #
+  # How would one handle the STDOUT/STDERR reads anyway? That's an
+  # implementation detail that we should hide.
+  fn run(command: String, arguments: Array[String]) -> Result[String, String] {
+    let cmd = Command.new('git')
+
+    cmd.argument(command)
+    cmd.arguments(arguments)
+    cmd.stdin(Stream.Null)
+    cmd.stderr(Stream.Piped)
+    cmd.stdout(Stream.Piped)
+
+    let child = try cmd.spawn.map_error fn (e) { "failed to spawn Git: {e}" }
+    let stdout = ByteArray.new
+    let stderr = ByteArray.new
+    let status = try child
+      .wait
+      .map_error fn (e) { "failed to wait for Git: {e}" }
+
+    try child
+      .stdout
+      .read_all(stdout)
+      .map_error fn (e) { "failed to read STDOUT: {e}" }
+
+    try child
+      .stderr
+      .read_all(stderr)
+      .map_error fn (e) { "failed to read STDERR: {e}" }
+
+    if status.success? {
+      Result.Ok(stdout.into_string)
+    } else {
+      Result.Error("failed to get the tag names: {stderr}")
     }
   }
 }

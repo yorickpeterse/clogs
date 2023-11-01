@@ -5,18 +5,26 @@ import std.iter
 import std.string.ToString
 import std.sys.(Command, Stream)
 
-class Error {
-  let @command: String
-  let @message: String
+# An error produced when running Git commands.
+class enum Error {
+  # The Git command failed to run, such as due to it not existing, or a lack of
+  # permissions.
+  case InvalidCommand(io.Error)
 
-  fn static new(command: String, message: String) -> Error {
-    Error { @command = command, @message = message }
-  }
+  # The output from STDOUT or STDERR couldn't be read.
+  case InvalidRead(io.Error)
+
+  # The command ran, but exited with a non-zero exit status.
+  case InvalidExit(Int, String)
 }
 
 impl ToString for Error {
   fn pub to_string -> String {
-    "'git {@command}' failed: {@message}"
+    match self {
+      case InvalidCommand(e) -> "the Git command failed to run: {e}"
+      case InvalidRead(e) -> "the STDOUT or STDERR output couldn't be read: {e}"
+      case InvalidExit(c, e) -> "the Git command exited with status {c}: {e}"
+    }
   }
 }
 
@@ -35,9 +43,6 @@ class Repository {
     run('tag', []).map fn (out) { out.split("\n") }
   }
 
-  # TODO: coalesce the read errors into a single message, instead of propagating
-  # whatever message the underlying implementation produces, because that's
-  # probably something super cryptic like "broken pipe".
   fn run(command: String, arguments: Array[String]) -> Result[String, Error] {
     let cmd = Command.new('git')
 
@@ -47,38 +52,21 @@ class Repository {
     cmd.stderr(Stream.Piped)
     cmd.stdout(Stream.Piped)
 
-    # TODO: is it really needed to include "git blabla failed: ..." in the
-    # message, opposed to just the raw message (or a custom one)? If the user
-    # calls `Repository.tags` and it fails with "git tag failed: ..." that's not
-    # helpful and even redundant.
-    #
-    # case: SpawnError
-    let child =
-      try cmd.spawn.map_error fn (e) { Error.new(command, e.to_string) }
-
+    let child = try cmd.spawn.map_error fn (e) { Error.InvalidCommand(e) }
     let out = ByteArray.new
     let stdout = child.stdout
     let stderr = child.stderr
+    let status = try child.wait.map_error fn (e) { Error.InvalidCommand(e) }
 
-    # case: WaitError
-    let status =
-      try child.wait.map_error fn (e) { Error.new(command, e.to_string) }
-
-    # case: OutputError/ReadError
-    try stdout
-      .read_all(out)
-      .map_error fn (e) { Error.new(command, e.to_string) }
+    try stdout.read_all(out).map_error fn (e) { Error.InvalidRead(e) }
 
     if status.success? {
       Result.Ok(out.into_string)
     } else {
       out.clear
-      # case: OutputError/ReadError
-      try stderr
-        .read_all(out)
-        .map_error fn (e) { Error.new(command, e.to_string) }
+      try stderr.read_all(out).map_error fn (e) { Error.InvalidRead(e) }
 
-      Result.Error(Error.new(command, out.into_string))
+      Result.Error(Error.InvalidExit(status.to_int, out.into_string))
     }
   }
 }

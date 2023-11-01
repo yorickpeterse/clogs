@@ -4,6 +4,12 @@ import std.fmt.(fmt)
 import std.test.Tests
 
 fn pub tests(t: mut Tests) {
+  t.test('Version.from_tag') fn (t) {
+    t.equal(Version.from_tag('v1.2.3'), Option.Some(Version.new(1, 2, 3)))
+    t.equal(Version.from_tag('1.2.3'), Option.Some(Version.new(1, 2, 3)))
+    t.equal(Version.from_tag('foo'), Option.None)
+  }
+
   t.test('Version.parse') fn (t) {
     t.equal(Version.parse('1.2.3'), Option.Some(Version.new(1, 2, 3)))
     t.equal(Version.parse('1.2.0'), Option.Some(Version.new(1, 2, 0)))

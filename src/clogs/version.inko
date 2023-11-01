@@ -10,6 +10,10 @@ class Version {
   let @minor: Int
   let @patch: Int
 
+  fn static from_tag(name: String) -> Option[Version] {
+    parse(name.strip_prefix('v'))
+  }
+
   fn static parse(input: String) -> Option[Version] {
     # Just in case somebody tries to be funny and provide a really long version
     # number, we disallow inputs beyond this size. This allows version numbers

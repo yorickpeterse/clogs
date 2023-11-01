@@ -5,6 +5,8 @@ import std.fs.path.Path
 import std.io.Write
 import std.sys.(exit)
 
+import std.fmt.(fmt) # TODO: remove
+
 let VERSION = '0.1.0'
 
 fn pub run(
@@ -20,7 +22,7 @@ fn pub run(
 
   let matches = match opts.parse(arguments) {
     case Ok(v) -> v
-    case Error(err) -> return Result.Error(err.to_string)
+    case Error(e) -> throw e.to_string
   }
 
   if matches.contains?('help') {
@@ -50,20 +52,23 @@ fn pub run(
   let version =
     match matches.remaining.opt(0).then(fn (v) { Version.parse(v) }) {
       case Some(v) -> v
-      case _ -> return Result.Error('a version in the format X.Y.Z is required')
+      case _ -> throw 'a version in the format X.Y.Z is required'
     }
 
   let repo = match Repository.new(working_directory) {
     case Some(v) -> v
-    case _ -> return Result
-      .Error("the current working directory isn't a Git repository")
+    case _ -> throw "the current working directory isn't a Git repository"
   }
 
-  repo.tag_names.unwrap.each fn (name) { output.print(name) }
+  let versions = (try repo.tag_names.map_error(fn (e) { e.to_string }))
+    .select_map fn (n) { Version.from_tag(n) }
+    .to_array
 
+  versions.sort
+
+  output.print(fmt(versions))
   Result.Ok(nil)
 
-  # TODO: list all versions according to the tags
   # TODO: get the previous version, its tag, and its commit
   # TODO: generate the range A of commits including the Changelog trailer
   # TODO: generate a range B of revert commits

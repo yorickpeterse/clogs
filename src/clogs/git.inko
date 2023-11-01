@@ -5,8 +5,6 @@ import std.iter
 import std.string.ToString
 import std.sys.(Command, Stream)
 
-# TODO: the user doesn't actually care whether we ran `git tag` or used
-# something like libgit2, so why do we expose that in the error message?
 class Error {
   let @command: String
   let @message: String
@@ -33,29 +31,14 @@ class Repository {
     }
   }
 
-  fn tag_names -> Result[iter.Stream[String], String] {
+  fn tag_names -> Result[iter.Stream[String], Error] {
     run('tag', []).map fn (out) { out.split("\n") }
   }
 
-  # errors:
-  #
-  # 1. spawn
-  # 1. wait
-  # 1. read STDOUT
-  # 1. read STDERR
-  # 1. exit code isn't zero
-  #
-  # General error format: `git [COMMAND] failed: [REASON]`
-  #
-  # The user doesn't care whether reading from STDOUT or STDERR failed, that's
-  # too "precise"; they just want to know "did it work, if not why".
-  #
-  # wait and spawn errors we can group as "the program failed to run". The
-  # read errors can be grouped into "failed to read output".
-  #
-  # How would one handle the STDOUT/STDERR reads anyway? That's an
-  # implementation detail that we should hide.
-  fn run(command: String, arguments: Array[String]) -> Result[String, String] {
+  # TODO: coalesce the read errors into a single message, instead of propagating
+  # whatever message the underlying implementation produces, because that's
+  # probably something super cryptic like "broken pipe".
+  fn run(command: String, arguments: Array[String]) -> Result[String, Error] {
     let cmd = Command.new('git')
 
     cmd.argument(command)
@@ -64,27 +47,38 @@ class Repository {
     cmd.stderr(Stream.Piped)
     cmd.stdout(Stream.Piped)
 
-    let child = try cmd.spawn.map_error fn (e) { "failed to spawn Git: {e}" }
-    let stdout = ByteArray.new
-    let stderr = ByteArray.new
-    let status = try child
-      .wait
-      .map_error fn (e) { "failed to wait for Git: {e}" }
+    # TODO: is it really needed to include "git blabla failed: ..." in the
+    # message, opposed to just the raw message (or a custom one)? If the user
+    # calls `Repository.tags` and it fails with "git tag failed: ..." that's not
+    # helpful and even redundant.
+    #
+    # case: SpawnError
+    let child =
+      try cmd.spawn.map_error fn (e) { Error.new(command, e.to_string) }
 
-    try child
-      .stdout
-      .read_all(stdout)
-      .map_error fn (e) { "failed to read STDOUT: {e}" }
+    let out = ByteArray.new
+    let stdout = child.stdout
+    let stderr = child.stderr
 
-    try child
-      .stderr
-      .read_all(stderr)
-      .map_error fn (e) { "failed to read STDERR: {e}" }
+    # case: WaitError
+    let status =
+      try child.wait.map_error fn (e) { Error.new(command, e.to_string) }
+
+    # case: OutputError/ReadError
+    try stdout
+      .read_all(out)
+      .map_error fn (e) { Error.new(command, e.to_string) }
 
     if status.success? {
-      Result.Ok(stdout.into_string)
+      Result.Ok(out.into_string)
     } else {
-      Result.Error("failed to get the tag names: {stderr}")
+      out.clear
+      # case: OutputError/ReadError
+      try stderr
+        .read_all(out)
+        .map_error fn (e) { Error.new(command, e.to_string) }
+
+      Result.Error(Error.new(command, out.into_string))
     }
   }
 }

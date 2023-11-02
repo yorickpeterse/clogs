@@ -14,10 +14,7 @@ class async Main {
     match cli.run(arguments, pwd, out) {
       case Ok(_) -> {}
       case Error(err) -> {
-        STDERR.new.print(
-          "error: {err}\n\nFor more information, run 'clogs --help'"
-        )
-
+        STDERR.new.print(err)
         exit(1)
       }
     }

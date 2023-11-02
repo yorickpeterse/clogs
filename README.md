@@ -37,25 +37,24 @@ format:
 
 ```json
 {
-  "added": "Added",
-  "fixed": "Fixed",
-  "changed": "Changed"
+  "url": "https://github.com/yorickpeterse/clogs/commit/%s",
+  "categories": {
+    "added": "Added",
+    "fixed": "Fixed",
+    "changed": "Changed"
+  }
 }
 ```
 
-Here the keys are the trailer values (e.g. `added` for `Changelog: added`), and
-the values the titles to use in the generate changelog section. If no
-configuration file is found, clogs uses the following trailer values and titles:
+The `url` pair specifies the project URL, used for generating links to commits.
+The `%s` placeholder is replaced with the commit SHA.
 
-| Trailer value | Title
-|:--------------|:------------------
-| added         | Added
-| fixed         | Fixed
-| changed       | Changed
-| other         | Other
-| performance   | Performance improvements
+The `categories` object specifies the trailer values (e.g. `added` for
+`Changelog: added`), and the titles to use in the generated changelog section.
 
-The changelog format is fixed and can't be customized, nor are there any plans
+To generate a configuration file, run `clogs init`.
+
+The Markdown output is fixed and can't be customized, nor are there any plans
 to add support for this. This is a deliberate, at it keeps the tool simple and
 ensures a consistent changelog format. In addition, new release sections are
 always inserted at the same place, specifically where the `<!-- new section -->`

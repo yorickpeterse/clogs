@@ -1,7 +1,9 @@
 # Types for parsing and representing version numbers.
+import std.clone.Clone
 import std.cmp.(Compare, Equal, Ordering)
 import std.fmt.(Format as FormatTrait, Formatter)
 import std.int.Format
+import std.string.ToString
 
 # A type that represents a version number, per semantic versioning
 # (https://semver.org/).
@@ -42,6 +44,16 @@ class Version {
   fn static new(major: Int, minor: Int, patch: Int) -> Version {
     Version { @major = major, @minor = minor, @patch = patch }
   }
+
+  fn tag_name -> String {
+    "v{self}"
+  }
+}
+
+impl ToString for Version {
+  fn pub to_string -> String {
+    "{@major}.{@minor}.{@patch}"
+  }
 }
 
 impl Equal[Version] for Version {
@@ -65,5 +77,11 @@ impl Compare[Version] for Version {
 impl FormatTrait for Version {
   fn pub fmt(formatter: mut Formatter) {
     formatter.tuple('Version').field(@major).field(@minor).field(@patch).finish
+  }
+}
+
+impl Clone[Version] for Version {
+  fn pub clone -> Version {
+    Version { @major = @major, @minor = @minor, @patch = @patch }
   }
 }

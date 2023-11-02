@@ -1,31 +1,84 @@
 # Types and methods for working with Git repositories.
 import std.fs.path.Path
-import std.io
-import std.iter
+import std.io.(BufferedReader, Error as IoError)
+import std.iter.(Iter, Stream)
 import std.string.ToString
-import std.sys.(Command, Stream)
+import std.sys
+
+let LF = 10
+
+# The name of the Git trailer that specifies the changelog category.
+#
+# For the sake of consistency between projects and implementation complexity (or
+# as much of a lack thereof as is possible), we don't support using a different
+# trailer name.
+let TRAILER = 'Changelog'
+
+# The text in a subject that precedes the SHA of a reverted commit.
+#
+# Git doesn't provide any sort of meta data to figure out if a commit reverts
+# something or not, so all we can do is look for "This reverts commit X" lines.
+let REVERT_TEXT = 'This reverts commit '
+
+# The amount of bytes in a Git SHA.
+let SHA_SIZE = 40
 
 # An error produced when running Git commands.
 class enum Error {
   # The Git command failed to run, such as due to it not existing, or a lack of
   # permissions.
-  case InvalidCommand(io.Error)
-
-  # The output from STDOUT or STDERR couldn't be read.
-  case InvalidRead(io.Error)
+  case Invalid(IoError)
 
   # The command ran, but exited with a non-zero exit status.
-  case InvalidExit(Int, String)
+  case Exit(String)
 }
 
 impl ToString for Error {
   fn pub to_string -> String {
     match self {
-      case InvalidCommand(e) -> "the Git command failed to run: {e}"
-      case InvalidRead(e) -> "the STDOUT or STDERR output couldn't be read: {e}"
-      case InvalidExit(c, e) -> "the Git command exited with status {c}: {e}"
+      case Invalid(e) -> "failed to run the 'git' command: {e}"
+      case Exit(e) -> e
     }
   }
+}
+
+# An iterator over the lines of a process' STDOUT stream.
+#
+# The produced lines _don't_ include the trailing newline.
+class Output {
+  let @stdout: BufferedReader[sys.Stdout]
+  let @child: sys.ChildProcess
+  let @buffer: ByteArray
+
+  fn static new(child: sys.ChildProcess) -> Output {
+    Output {
+      @stdout = BufferedReader.new(child.stdout),
+      @child = child,
+      @buffer = ByteArray.new,
+    }
+  }
+}
+
+impl Iter[String] for Output {
+  fn pub mut next -> Option[String] {
+    match @stdout.read_line(@buffer) {
+      case Ok(0) -> Option.None
+      case Ok(_) -> {
+        if @buffer.last.unwrap_or(0) == LF { @buffer.pop }
+        Option.Some(@buffer.drain_to_string)
+      }
+      # Pipe errors should be rare, and possibly never occur in the first place.
+      # Even if they do occur, there's nothing really useful you can do with the
+      # error, short of restarting the program and trying again.
+      case Error(_) -> Option.None
+    }
+  }
+}
+
+class Commit {
+  let @id: String
+  let @subject: String
+  let @category: String
 }
 
 class Repository {
@@ -39,34 +92,98 @@ class Repository {
     }
   }
 
-  fn tag_names -> Result[iter.Stream[String], Error] {
-    run('tag', []).map fn (out) { out.split("\n") }
+  fn tag_names -> Result[Output, Error] {
+    run('tag', [])
   }
 
-  fn run(command: String, arguments: Array[String]) -> Result[String, Error] {
-    let cmd = Command.new('git')
+  fn first_commit -> Result[String, Error] {
+    # Git errors if there are no commits, so we can safely unwrap here.
+    run('rev-list', ['--max-parents=0', 'HEAD']).map fn (i) { i.next.unwrap }
+  }
+
+  fn changelog_commits(
+    start: String,
+    end: String,
+  ) -> Result[Stream[Commit], Error] {
+    let output = try run(
+      'log',
+      [
+        "{start}...{end}",
+        "--format=%H\t%(trailers:key={TRAILER},valueonly=true,separator=%x2C)\t%s",
+        '--no-merges',
+        '--grep=Changelog:',
+      ]
+    )
+
+    let iter = output.select_map fn (line) {
+      let chunks = line.split("\t")
+      let id = chunks.next.unwrap
+      let cat = chunks.next.unwrap
+      let sub = chunks.next.unwrap
+
+      # This can happen if the trailer is literally just `Changelog:`. In this
+      # case we ignore the commit.
+      if cat == '' { return Option.None }
+
+      Option.Some(Commit { @id = id, @category = cat, @subject = sub })
+    }
+
+    Result.Ok(iter)
+  }
+
+  fn reverted_commits(
+    start: String,
+    end: String,
+  ) -> Result[Stream[String], Error] {
+    let out = run(
+      'log',
+      ["{start}...{end}", '--format=%b', '--no-merges', "--grep={REVERT_TEXT}"]
+    )
+
+    out.map fn (iter) {
+      iter.select_map fn (line) {
+        if line.starts_with?(REVERT_TEXT).false? { return Option.None }
+
+        let sha =
+          line.slice(start: REVERT_TEXT.size, size: SHA_SIZE).into_string
+
+        if sha.size == SHA_SIZE { Option.Some(sha) } else { Option.None }
+      }
+    }
+  }
+
+  fn run(command: String, arguments: Array[String]) -> Result[Output, Error] {
+    let cmd = sys.Command.new('git')
 
     cmd.argument(command)
     cmd.arguments(arguments)
-    cmd.stdin(Stream.Null)
-    cmd.stderr(Stream.Piped)
-    cmd.stdout(Stream.Piped)
+    cmd.stdin(sys.Stream.Null)
+    cmd.stderr(sys.Stream.Piped)
+    cmd.stdout(sys.Stream.Piped)
 
-    let child = try cmd.spawn.map_error fn (e) { Error.InvalidCommand(e) }
-    let out = ByteArray.new
-    let stdout = child.stdout
-    let stderr = child.stderr
-    let status = try child.wait.map_error fn (e) { Error.InvalidCommand(e) }
-
-    try stdout.read_all(out).map_error fn (e) { Error.InvalidRead(e) }
+    let child = try cmd.spawn.map_error fn (e) { Error.Invalid(e) }
+    let status = try child.wait.map_error fn (e) { Error.Invalid(e) }
 
     if status.success? {
-      Result.Ok(out.into_string)
+      Result.Ok(Output.new(child))
     } else {
-      out.clear
-      try stderr.read_all(out).map_error fn (e) { Error.InvalidRead(e) }
+      let out = ByteArray.new
+      let message = match child.stderr.read_all(out) {
+        case Ok(_) -> {
+          # Trailing newlines may mess up error message formatting, so we get
+          # rid of them.
+          while out.last.unwrap_or(0) == LF { out.pop }
+          out.into_string
+        }
+        # Yielding a dedicated error for this isn't useful as the end user can't
+        # do anything in particular about a broken pipe (if that even ever
+        # happens in this setup) that they can't do using this more generic
+        # error.
+        case Error(e) -> "the 'git' process exited with a non-zero status, \
+          but the STDERR stream couldn't be read: {e}"
+      }
 
-      Result.Error(Error.InvalidExit(status.to_int, out.into_string))
+      Result.Error(Error.Exit(message))
     }
   }
 }

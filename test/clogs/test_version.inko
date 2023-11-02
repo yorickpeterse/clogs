@@ -51,4 +51,16 @@ fn pub tests(t: mut Tests) {
   t.test('Version.fmt') fn (t) {
     t.equal(fmt(Version.new(1, 2, 3)), 'Version(1, 2, 3)')
   }
+
+  t.test('Version.clone') fn (t) {
+    t.equal(Version.new(1, 2, 3).clone, Version.new(1, 2, 3))
+  }
+
+  t.test('Version.tag_name') fn (t) {
+    t.equal(Version.new(1, 2, 3).tag_name, 'v1.2.3')
+  }
+
+  t.test('Version.to_string') fn (t) {
+    t.equal(Version.new(1, 2, 3).to_string, '1.2.3')
+  }
 }

@@ -1,0 +1,14 @@
+import std.cmp.Equal
+
+impl Array if T: Equal[T] {
+  fn pub index_of(value: ref T) -> Option[Int] {
+    let mut idx = 0
+
+    while idx < @size {
+      if get(idx) == value { return Option.Some(idx) }
+      idx += 1
+    }
+
+    Option.None
+  }
+}

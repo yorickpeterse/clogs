@@ -1,13 +1,42 @@
 import clogs.git.Repository
+import clogs.patches
 import clogs.version.Version
 import optparse.(Help, Options)
 import std.fs.path.Path
 import std.io.Write
+import std.set.Set
+import std.string.StringBuffer
 import std.sys.(exit)
-
-import std.fmt.(fmt) # TODO: remove
+import std.time.DateTime
 
 let VERSION = '0.1.0'
+
+# TODO: move elsewhere
+fn format_date(date: DateTime) -> String {
+  "{date.year}-{date.month.to_string.pad_start('0', chars: 2)}\
+    -{date.day.to_string.pad_start('0', chars: 2)}"
+}
+
+fn show_help(options: ref Options, output: mut Write) {
+  let help = Help
+    .new('clogs')
+    .usage('[OPTIONS] [VERSION | COMMAND]')
+    .section('Examples')
+    .line(
+      'clogs 1.2.3                      Generate a changelog for version 1.2.3'
+    )
+    .line(
+      'clogs 1.2.3 --config foo.json    Use a custom configuration file'
+    )
+    .line(
+      'clogs init                       Generate a new configuration file'
+    )
+    .section('Options')
+    .options(options)
+    .to_string
+
+  output.write_string(help).unwrap
+}
 
 fn pub run(
   arguments: Array[String],
@@ -19,6 +48,7 @@ fn pub run(
   opts.flag('h', 'help', 'Show this help message')
   opts.flag('v', 'version', 'Show the version')
   opts.single('c', 'config', 'CONFIG', 'Use the specified configuration file')
+  opts.single('e', 'end', 'REF', 'The end of the commit range (default: HEAD)')
 
   let matches = match opts.parse(arguments) {
     case Ok(v) -> v
@@ -26,21 +56,7 @@ fn pub run(
   }
 
   if matches.contains?('help') {
-    let help = Help
-      .new('clogs')
-      .usage('[VERSION] [OPTIONS]')
-      .section('Examples')
-      .line(
-        'clogs 1.2.3                      Generate a changelog for version 1.2.3'
-      )
-      .line(
-        'clogs 1.2.3 --config foo.json    Use a custom configuration file'
-      )
-      .section('Options')
-      .options(opts)
-      .to_string
-
-    output.write_string(help).unwrap
+    show_help(opts, output)
     return Result.Ok(nil)
   }
 
@@ -49,30 +65,87 @@ fn pub run(
     return Result.Ok(nil)
   }
 
-  let version =
-    match matches.remaining.opt(0).then(fn (v) { Version.parse(v) }) {
+  let version = match matches.remaining.opt(0) {
+    case Some('init') -> {
+      panic('TODO: implement')
+    }
+    case Some(v) -> match Version.parse(v) {
       case Some(v) -> v
       case _ -> throw 'a version in the format X.Y.Z is required'
     }
+    case _ -> {
+      show_help(opts, output)
+      return Result.Ok(nil)
+    }
+  }
 
   let repo = match Repository.new(working_directory) {
     case Some(v) -> v
     case _ -> throw "the current working directory isn't a Git repository"
   }
 
-  let versions = (try repo.tag_names.map_error(fn (e) { e.to_string }))
-    .select_map fn (n) { Version.from_tag(n) }
-    .to_array
+  let versions = match repo.tag_names {
+    case Ok(iter) -> iter.select_map fn (n) { Version.from_tag(n) }.to_array
+    case Error(e) -> throw "failed to get the Git tags: {e}"
+  }
 
+  # If the version is already released, then pushing it into the list produces
+  # duplicate values. This in turn may result in an inconsistent index being
+  # produced (e.g. the index of the same version). Since this is incorrect, and
+  # based on the premise that an existing tag means a changelog is already
+  # present, we bail out if the version is already present.
+  if versions.contains?(version) {
+    throw "version {version} is already released"
+  }
+
+  versions.push(version.clone)
   versions.sort
 
-  output.print(fmt(versions))
+  let index = versions.index_of(version).unwrap
+  let start = match versions.opt(index - 1) {
+    case Some(ver) -> ver.tag_name
+    case _ -> match repo.first_commit {
+      case Ok(v) -> v
+      case Error(e) -> throw "failed to get the first commit: {e}"
+    }
+  }
+
+  let end = matches.value('end').unwrap_or('HEAD')
+  let reverts = Set.new
+  let commits = match repo.changelog_commits(start, end) {
+    case Ok(v) -> v
+    case Error(e) -> throw "failed to get the changelog commits: {e}"
+  }
+
+  match repo.reverted_commits(start, end) {
+    case Ok(v) -> v.each fn (id) { reverts.insert(id) }
+    case Error(e) -> throw "failed to get the list of reverted commits: {e}"
+  }
+
+  let grouped = commits
+    .select fn (c) { reverts.contains?(c.id).false? }
+    .reduce(Map.new) fn (map, commit) {
+      match map.opt_mut(commit.category) {
+        case None -> {
+          map.set(commit.category, [commit])
+          map
+        }
+        case Some(v) -> {
+          v.push(commit)
+          map
+        }
+      }
+    }
+
+  let markdown = StringBuffer.from_array([
+    '<!-- new section -->',
+    "\n\n"
+    "## {version} ({format_date(DateTime.utc)})",
+  ])
+
+  output.write_string(markdown.into_string)
   Result.Ok(nil)
 
-  # TODO: get the previous version, its tag, and its commit
-  # TODO: generate the range A of commits including the Changelog trailer
-  # TODO: generate a range B of revert commits
-  # TODO: remove commits from A that are reverted in B
   # TODO: generate Markdown
   # TODO: create CHANGELOG.md if needed
   # TODO: write to CHANGELOG.md

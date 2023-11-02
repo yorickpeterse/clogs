@@ -38,6 +38,7 @@ format:
 ```json
 {
   "url": "https://github.com/yorickpeterse/clogs/commit/%s",
+  "changelog": "CHANGELOG.md",
   "categories": {
     "added": "Added",
     "fixed": "Fixed",
@@ -47,20 +48,33 @@ format:
 ```
 
 The `url` pair specifies the project URL, used for generating links to commits.
-The `%s` placeholder is replaced with the commit SHA.
+The `%s` placeholder is replaced with the full commit SHA.
+
+The `changelog` pair specifies the path (relative to the directory of the
+configuration file) to the changelog file to update.
 
 The `categories` object specifies the trailer values (e.g. `added` for
 `Changelog: added`), and the titles to use in the generated changelog section.
+When generating the Markdown, commits are grouped in the same order as the
+key-value pairs in this object (i.e. `added` commits are grouped before `fixed`
+commits using the above configuration).
 
-To generate a configuration file, run `clogs init`.
+To generate a configuration file and an initial changelog file (if one doesn't
+already exist), run `clogs init`. If you have an existing changelog file, you
+must insert `<!-- new section -->` somewhere, as this placeholder is replaced
+with the data for a new release.
+
+## The output
 
 The Markdown output is fixed and can't be customized, nor are there any plans
 to add support for this. This is a deliberate, at it keeps the tool simple and
-ensures a consistent changelog format. In addition, new release sections are
-always inserted at the same place, specifically where the `<!-- new section -->`
-placeholder is located. This again is deliberate: it keeps things simple, and I
-doubt anybody actually cares about the sections being ordered based on their
-version number instead of the release date.
+ensures a consistent changelog format.
+
+In addition, new release sections are always inserted at the same place,
+specifically where the `<!-- new section -->` placeholder is located. This again
+is deliberate: it keeps things simple, and I doubt anybody actually cares about
+the sections being ordered based on their version number instead of the release
+date.
 
 ## Requirements
 

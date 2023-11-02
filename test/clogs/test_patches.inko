@@ -1,0 +1,19 @@
+import clogs.patches
+import std.test.Tests
+
+fn pub tests(t: mut Tests) {
+  t.test('Array.index_of') fn (t) {
+    t.equal([10, 20].index_of(10), Option.Some(0))
+    t.equal([10, 20].index_of(20), Option.Some(1))
+    t.equal([10, 20].index_of(30), Option.None)
+    t.equal([].index_of(30), Option.None)
+  }
+
+  t.test('String.replace') fn (t) {
+    t.equal('foo 😀 bar'.replace(' 😀', with: ','), 'foo, bar')
+    t.equal(''.replace('%s', with: ' ABC '), '')
+    t.equal('foo'.replace('%s', with: ' ABC '), 'foo')
+    t.equal('foo%sbar'.replace('%s', with: ' ABC '), 'foo ABC bar')
+    t.equal('foo testing bar'.replace('testing', with: 'a'), 'foo a bar')
+  }
+}

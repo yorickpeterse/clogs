@@ -155,6 +155,8 @@ class Repository {
   fn run(command: String, arguments: Array[String]) -> Result[Output, Error] {
     let cmd = sys.Command.new('git')
 
+    cmd.argument('-C')
+    cmd.argument(@path.to_string)
     cmd.argument(command)
     cmd.arguments(arguments)
     cmd.stdin(sys.Stream.Null)

@@ -1,0 +1,141 @@
+import std.fs.file.(ReadOnlyFile, WriteOnlyFile)
+import std.fs.path.Path
+import std.io.(Error as IoError)
+import std.json.Json
+import std.string.ToString
+
+# The default file name of the configuration file.
+let CONFIG_FILE = 'clogs.json'
+
+# The default changelog file name.
+let DEFAULT_CHANGELOG = 'CHANGELOG.md'
+
+# The default categories to support, in the format `(key, title)`.
+let DEFAULT_CATEGORIES = [
+  ['added', 'Added'],
+  ['fixed', 'Fixed'],
+  ['changed', 'Changed'],
+  ['performance', 'Performance improvements'],
+  ['other', 'Other'],
+]
+
+class enum Error {
+  # The configuration file couldn't be loaded (e.g. it doesn't exist).
+  case InvalidFile(IoError)
+
+  # The JSON syntax is invalid.
+  case InvalidSyntax(String)
+
+  # The root JSON value isn't an object.
+  case InvalidRoot
+
+  # The "url" setting is invalid (e.g. its value isn't a `String`).
+  case InvalidUrl
+
+  # The "changelog" setting is invalid.
+  case InvalidChangelogPath
+
+  # The "categories" setting is invalid (e.g. it's not an object).
+  case InvalidCategories
+}
+
+impl ToString for Error {
+  fn pub to_string -> String {
+    match self {
+      case InvalidFile(e) -> e.to_string
+      case InvalidSyntax(e) -> e
+      case InvalidRoot -> "the root JSON value must be an object"
+      case InvalidUrl -> 'the "url" key must have its value set to a string'
+      case InvalidChangelogPath -> 'the "changelog" key must have its value \
+        set to a non-empty string'
+      case InvalidCategories -> 'the "categories" setting must be an object, \
+        and its values must be strings'
+    }
+  }
+}
+
+class Config {
+  let @url: String
+  let @changelog: Path
+  let @categories: Map[String, String]
+
+  fn static load(path: ref Path) -> Result[Config, Error] {
+    let buf = ByteArray.new
+
+    # BUG: because of https://github.com/inko-lang/inko/issues/618, we have to
+    # clone the Path, otherwise the reference is moved as if it were an owned
+    # value.
+    try ReadOnlyFile
+      .new(path.clone)
+      .then fn (file) { file.read_all(buf) }
+      .map_error fn (e) { Error.InvalidFile(e) }
+
+    let doc = match Json.parse(buf) {
+      case Ok(Object(map)) -> map
+      case Ok(_) -> throw Error.InvalidRoot
+      case Error(e) -> throw Error.InvalidSyntax(e.to_string)
+    }
+
+    let url = match doc.opt('url') {
+      case Some(String(val)) if val.size > 0 -> val
+      case _ -> throw Error.InvalidUrl
+    }
+
+    let changelog = match doc.opt('changelog') {
+      case Some(String(val)) if val.size > 0 -> val.to_path
+      case _ -> throw Error.InvalidChangelogPath
+    }
+
+    let cats = Map.new
+
+    match doc.opt('categories') {
+      case Some(Object(map)) -> {
+        let iter = map.iter
+
+        loop {
+          match iter.next {
+            case Some({ @key = k, @value = String(v) }) -> {
+              cats.set(k, v)
+              nil
+            }
+            case Some(_) -> throw Error.InvalidCategories
+            case _ -> break
+          }
+        }
+      }
+      case _ -> throw Error.InvalidCategories
+    }
+
+    Result.Ok(Config { @url = url, @changelog = changelog, @categories = cats })
+  }
+
+  fn static default -> Config {
+    Config {
+      @url = 'https://github.com/OWNER/PROJECT/commit/%s',
+      @changelog = DEFAULT_CHANGELOG.to_path,
+      @categories = DEFAULT_CATEGORIES.iter.reduce(Map.new) fn (map, pair) {
+        map.set(pair.get(0), pair.get(1))
+        map
+      },
+    }
+  }
+
+  fn save(path: ref Path) -> Result[Nil, IoError] {
+    let root = Map.new
+    let cats = @categories.iter.reduce(Map.new) fn (map, pair) {
+      map.set(pair.key, Json.String(pair.value))
+      map
+    }
+
+    root.set('url', Json.String(@url))
+    root.set('changelog', Json.String(@changelog.to_string))
+    root.set('categories', Json.Object(cats))
+
+    let out = Json.Object(root).to_pretty_string
+
+    WriteOnlyFile
+      .new(path.clone)
+      .then fn (f) { f.write_string(out) }
+      .map fn (_) { nil }
+  }
+}

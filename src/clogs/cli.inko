@@ -1,8 +1,10 @@
-import clogs.git.Repository
+import clogs.config.(CONFIG_FILE, Config)
+import clogs.git.(Commit, Repository)
 import clogs.patches
 import clogs.version.Version
 import optparse.(Help, Options)
 import std.fs.path.Path
+import std.fs.file.(ReadOnlyFile, WriteOnlyFile)
 import std.io.Write
 import std.set.Set
 import std.string.StringBuffer
@@ -10,6 +12,11 @@ import std.sys.(exit)
 import std.time.DateTime
 
 let VERSION = '0.1.0'
+
+# The placeholder to replace with the new changelog section.
+#
+# TODO: move elsewhere
+let PLACEHOLDER = '<!-- new section -->'
 
 # TODO: move elsewhere
 fn format_date(date: DateTime) -> String {
@@ -40,7 +47,7 @@ fn show_help(options: ref Options, output: mut Write) {
 
 fn pub run(
   arguments: Array[String],
-  working_directory: Path,
+  working_directory: ref Path,
   output: mut Write,
 ) -> Result[Nil, String] {
   let opts = Options.new
@@ -65,9 +72,24 @@ fn pub run(
     return Result.Ok(nil)
   }
 
+  # TODO: move elsewhere
+  let mut config_path = matches
+    .value('config')
+    .map fn (s) { s.to_path }
+    .unwrap_or_else fn { CONFIG_FILE.to_path }
+
+  config_path = config_path.expand.unwrap_or(config_path)
+
+  let mut config_dir = config_path.directory
+
+  config_dir = config_dir.expand.unwrap_or(config_dir)
+
+  # TODO: split into methods
   let version = match matches.remaining.opt(0) {
     case Some('init') -> {
-      panic('TODO: implement')
+      # TODO: generate empty changelog if none exists
+      Config.default.save(config_path)
+      return Result.Ok(nil)
     }
     case Some(v) -> match Version.parse(v) {
       case Some(v) -> v
@@ -79,7 +101,12 @@ fn pub run(
     }
   }
 
-  let repo = match Repository.new(working_directory) {
+  let config = match Config.load(config_path) {
+    case Ok(v) -> v
+    case Error(e) -> throw "failed to read the configuratin file {config_path}: {e}"
+  }
+
+  let repo = match Repository.new(config_dir.clone) {
     case Some(v) -> v
     case _ -> throw "the current working directory isn't a Git repository"
   }
@@ -122,20 +149,18 @@ fn pub run(
     case Error(e) -> throw "failed to get the list of reverted commits: {e}"
   }
 
-  let grouped = commits
-    .select fn (c) { reverts.contains?(c.id).false? }
-    .reduce(Map.new) fn (map, commit) {
-      match map.opt_mut(commit.category) {
-        case None -> {
-          map.set(commit.category, [commit])
-          map
-        }
-        case Some(v) -> {
-          v.push(commit)
-          map
-        }
-      }
+  # TODO: move into generator type?
+
+  # BUG: due to https://github.com/inko-lang/inko/issues/636, an explicit type
+  # signature is needed here.
+  let grouped: Map[String, Array[Commit]] = Map.new
+
+  commits.select fn (c) { reverts.contains?(c.id).false? }.each fn (commit) {
+    match grouped.opt_mut(commit.category) {
+      case Some(v) -> v.push(commit)
+      case None -> grouped.set(commit.category, [commit])
     }
+  }
 
   let markdown = StringBuffer.from_array([
     '<!-- new section -->',
@@ -143,10 +168,39 @@ fn pub run(
     "## {version} ({format_date(DateTime.utc)})",
   ])
 
-  output.write_string(markdown.into_string)
-  Result.Ok(nil)
+  config.categories.iter.each fn (pair) {
+    let commits = match grouped.opt(pair.key) {
+      case Some(v) if v.size > 0 -> v
+      case _ -> return
+    }
 
-  # TODO: generate Markdown
-  # TODO: create CHANGELOG.md if needed
-  # TODO: write to CHANGELOG.md
+    markdown.push("\n\n### {pair.value}\n")
+
+    commits.iter.each fn (c) {
+      let url = config.url.replace('%s', c.id)
+      let short = c.id.slice(start: 0, size: 7)
+
+      markdown.push("\n* [{short}]({url}): {c.subject}")
+    }
+  }
+
+  let out_path = config_dir.join(config.changelog)
+  let old_data = try ReadOnlyFile
+    .new(out_path.clone)
+    .then fn (f) {
+      let buf = ByteArray.new
+
+      try f.read_all(buf)
+      Result.Ok(buf.into_string)
+    }
+    .map_error fn (e) { "failed to read {out_path}: {e}" }
+
+  let new_data = old_data.replace(PLACEHOLDER, markdown.into_string)
+
+  try WriteOnlyFile
+    .new(out_path.clone)
+    .then fn (f) { f.write_string(new_data) }
+    .map_error fn (e) { "failed to update {out_path}: {e}" }
+
+  Result.Ok(nil)
 }

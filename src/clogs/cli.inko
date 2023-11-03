@@ -3,7 +3,7 @@ import clogs.config.(CONFIG_FILE, Config)
 import clogs.git.(Commit, Repository)
 import clogs.patches
 import clogs.version.Version
-import optparse.(Help, Options)
+import optparse.(Help, Matches, Options)
 import std.fs.file.(ReadOnlyFile, WriteOnlyFile)
 import std.fs.path.Path
 import std.io.Write
@@ -65,60 +65,52 @@ fn pub run(
   let config_path =
     matches.value('config').unwrap_or_else fn { CONFIG_FILE }.to_path
 
-  let config_dir = config_path.directory
-
-  # TODO: split into methods
-  let version = match matches.remaining.opt(0) {
+  match matches.remaining.opt(0) {
     case Some('init') -> {
-      # TODO: generate empty changelog if none exists
       Config.default.save(config_path)
-      return Result.Ok(nil)
+      Result.Ok(nil)
     }
     case Some(v) -> match Version.parse(v) {
-      case Some(v) -> v
+      case Some(v) -> update_changelog(matches, v, config_path)
       case _ -> throw 'a version in the format X.Y.Z is required'
     }
     case _ -> {
       show_help(opts, output)
-      return Result.Ok(nil)
+      Result.Ok(nil)
     }
   }
+}
 
+fn update_changelog(
+  matches: Matches,
+  version: Version,
+  config_path: Path,
+) -> Result[Nil, String] {
   let config = match Config.load(config_path) {
     case Ok(v) -> v
     case Error(e) -> throw "failed to read {config_path}: {e}"
   }
 
+  let config_dir = config_path.directory
   let repo = match Repository.new(config_dir.clone) {
     case Some(v) -> v
     case _ -> throw "{config_dir} isn't a Git repository"
   }
 
-  let versions = match repo.tag_names {
-    case Ok(iter) -> iter.select_map fn (n) { Version.from_tag(n) }.to_array
+  let versions = match repo.versions {
+    case Ok(iter) -> iter.to_array
     case Error(e) -> throw "failed to get the Git tags: {e}"
   }
 
-  # If the version is already released, then pushing it into the list produces
-  # duplicate values. This in turn may result in an inconsistent index being
-  # produced (e.g. the index of the same version). Since this is incorrect, and
-  # based on the premise that an existing tag means a changelog is already
-  # present, we bail out if the version is already present.
-  if versions.contains?(version) {
-    throw "version {version} is already released"
-  }
-
-  versions.push(version.clone)
+  if versions.contains?(version).false? { versions.push(version.clone) }
   versions.sort
 
+  # At this point it's guaranteed our version is in the Array, so it's safe to
+  # unwrap the index.
   let index = versions.index_of(version).unwrap
 
   # BUG: https://github.com/inko-lang/inko/issues/639
-  let prev_version = match versions.opt(index - 1) {
-    case Some(v) -> Option.Some(v.clone)
-    case _ -> Option.None
-  }
-
+  let prev_version = versions.opt(index - 1).map fn (v) { v.clone }
   let start = match ref prev_version {
     case Some(ver) -> ver.tag_name
     case _ -> match repo.first_commit {
@@ -128,16 +120,13 @@ fn pub run(
   }
 
   let end = matches.value('end').unwrap_or('HEAD')
-  let reverts = Set.new
-  let commits = match repo.changelog_commits(start, end) {
-    case Ok(v) -> v
-    case Error(e) -> throw "failed to get the changelog commits: {e}"
-  }
+  let commits = try repo
+    .changelog_commits(start, end)
+    .map_error fn (e) { "failed to get the changelog commits: {e}" }
 
-  match repo.reverted_commits(start, end) {
-    case Ok(v) -> v.each fn (id) { reverts.insert(id) }
-    case Error(e) -> throw "failed to get the list of reverted commits: {e}"
-  }
+  let reverts = try repo
+    .reverted_commits(start, end)
+    .map_error fn (e) { "failed to get the list of reverted commits: {e}" }
 
   let release = Release.new(config, version, prev_version, date: DateTime.utc)
 

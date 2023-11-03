@@ -1,7 +1,9 @@
 # Types and methods for working with Git repositories.
+import clogs.version.Version
 import std.fs.path.Path
 import std.io.(BufferedReader, Error as IoError)
 import std.iter.(Iter, Stream)
+import std.set.Set
 import std.string.ToString
 import std.sys
 
@@ -92,8 +94,8 @@ class Repository {
     }
   }
 
-  fn tag_names -> Result[Output, Error] {
-    run('tag', [])
+  fn versions -> Result[Stream[Version], Error] {
+    run('tag', []).map fn (i) { i.select_map fn (n) { Version.from_tag(n) } }
   }
 
   fn first_commit -> Result[String, Error] {
@@ -134,20 +136,21 @@ class Repository {
   fn reverted_commits(
     start: String,
     end: String,
-  ) -> Result[Stream[String], Error] {
+  ) -> Result[Set[String], Error] {
     let out = run(
       'log',
       ["{start}...{end}", '--format=%b', '--no-merges', "--grep={REVERT_TEXT}"]
     )
 
     out.map fn (iter) {
-      iter.select_map fn (line) {
-        if line.starts_with?(REVERT_TEXT).false? { return Option.None }
+      iter.reduce(Set.new) fn (set, line) {
+        if line.starts_with?(REVERT_TEXT).false? { return set }
 
         let sha =
           line.slice(start: REVERT_TEXT.size, size: SHA_SIZE).into_string
 
-        if sha.size == SHA_SIZE { Option.Some(sha) } else { Option.None }
+        if sha.size == SHA_SIZE { set.insert(sha) }
+        set
       }
     }
   }

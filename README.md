@@ -60,9 +60,7 @@ key-value pairs in this object (i.e. `added` commits are grouped before `fixed`
 commits using the above configuration).
 
 To generate a configuration file and an initial changelog file (if one doesn't
-already exist), run `clogs init`. If you have an existing changelog file, you
-must insert `<!-- new section -->` somewhere, as this placeholder is replaced
-with the data for a new release.
+already exist), run `clogs init`.
 
 ## The output
 
@@ -70,11 +68,41 @@ The Markdown output is fixed and can't be customized, nor are there any plans
 to add support for this. This is a deliberate, at it keeps the tool simple and
 ensures a consistent changelog format.
 
-In addition, new release sections are always inserted at the same place,
-specifically where the `<!-- new section -->` placeholder is located. This again
-is deliberate: it keeps things simple, and I doubt anybody actually cares about
-the sections being ordered based on their version number instead of the release
-date.
+clogs also requires that the headings for new versions use the format
+`## X.Y.Z ...`, where `X.Y.Z` is a version number and `...` any additional
+characters. This format is required such that clogs can figure out where the
+Markdown for a new version should be inserted, such that the version sections
+are in version order, starting with the newest version. So if your changelog
+looks like this:
+
+```markdown
+## 2.0.0
+
+...
+
+## 1.1.0
+
+...
+```
+
+And you run `clogs 1.2.0`, the result is as follows:
+
+```markdown
+## 2.0.0
+
+...
+
+## 1.2.0
+
+...
+
+## 1.1.0
+
+...
+```
+
+If no such headings are found, clogs inserts the new section at the end of the
+changelog.
 
 ## Requirements
 

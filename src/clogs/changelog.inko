@@ -1,0 +1,133 @@
+import clogs.config.Config
+import clogs.git.Commit
+import clogs.patches
+import clogs.version.Version
+import std.fs.file.(ReadOnlyFile, WriteOnlyFile)
+import std.fs.path.Path
+import std.io.Error
+import std.string.(StringBuffer, ToString)
+import std.time.DateTime
+
+let LF = 10
+
+let DEFAULT_CHANGELOG = '<!-- This changelog is managed by \
+  https://github.com/yorickpeterse/clogs -->
+# Changelog'
+
+# TODO: fix
+fn format_date(date: ref DateTime) -> String {
+  "{date.year}-{date.month.to_string.pad_start('0', chars: 2)}\
+    -{date.day.to_string.pad_start('0', chars: 2)}"
+}
+
+class Release {
+  let @config: ref Config
+  let @version: Version
+  let @previous_version: Option[Version]
+  let @date: DateTime
+  let @commits: Map[String, Array[Commit]]
+
+  fn static new(
+    config: ref Config,
+    version: Version,
+    previous_version: Option[Version],
+    date: DateTime,
+  ) -> Release {
+    Release {
+      @config = config,
+      @version = version,
+      @previous_version = previous_version,
+      @date = date,
+      @commits = Map.new,
+    }
+  }
+
+  fn mut add(commit: Commit) {
+    match @commits.opt_mut(commit.category) {
+      case Some(v) -> v.push(commit)
+      case None -> @commits.set(commit.category, [commit])
+    }
+  }
+}
+
+impl ToString for Release {
+  fn pub to_string -> String {
+    let markdown =
+      StringBuffer.from_array(["## {@version} ({format_date(@date)})"])
+
+    if @commits.size == 0 {
+      markdown.push("\n\nNo changes.")
+      return markdown.into_string
+    }
+
+    @config.categories.iter.each fn (pair) {
+      let commits = match @commits.opt(pair.key) {
+        case Some(v) if v.size > 0 -> v
+        case _ -> return
+      }
+
+      markdown.push("\n\n### {pair.value}\n")
+
+      commits.iter.each fn (c) {
+        let url = @config.url.replace('%s', c.id)
+        let short = c.id.slice(start: 0, size: 7)
+
+        markdown.push("\n* [{short}]({url}): {c.subject}")
+      }
+    }
+
+    markdown.into_string
+  }
+}
+
+class Changelog {
+  let @path: Path
+  let @data: String
+
+  fn static load(path: Path) -> Result[Changelog, Error] {
+    let data = if path.file? {
+      let buf = ByteArray.new
+
+      try ReadOnlyFile.new(path.clone).then fn (f) { f.read_all(buf) }
+      buf.into_string
+    } else {
+      DEFAULT_CHANGELOG
+    }
+
+    Result.Ok(Changelog { @path = path, @data = data })
+  }
+
+  fn pub mut add(release: ref Release) {
+    let prev_idx = match release.previous_version {
+      case Some(v) -> @data
+        .byte_index(of: "\n## {v}", starting_at: 0)
+        .unwrap_or(-1)
+      case _ -> -1
+    }
+
+    # TODO: test what happens if prev_idx == 0
+    @data = if prev_idx >= 0 {
+      let new = @data.slice(start: 0, size: prev_idx - 1)
+
+      new.push(LF)
+      new.push(LF)
+      new.append(release.to_string.to_byte_array)
+      new.push(LF)
+      new.append(@data.slice(start: prev_idx, size: @data.size - prev_idx))
+      new.into_string
+    } else {
+      let sep = if @data.ends_with?("\n") { "\n" } else { "\n\n" }
+
+      StringBuffer
+        .from_array([@data, sep, release.to_string, "\n"])
+        .into_string
+    }
+  }
+
+  fn pub mut save -> Result[Nil, Error] {
+    WriteOnlyFile.new(@path.clone).then fn (f) {
+      try f.write_string(@data)
+      Result.Ok(nil)
+    }
+  }
+}

@@ -92,7 +92,7 @@ fn update_changelog(
   }
 
   let config_dir = config_path.directory
-  let repo = match Repository.new(config_dir.clone) {
+  let repo = match Repository.new(config_dir) {
     case Some(v) -> v
     case _ -> throw "{config_dir} isn't a Git repository"
   }
@@ -108,8 +108,6 @@ fn update_changelog(
   # At this point it's guaranteed our version is in the Array, so it's safe to
   # unwrap the index.
   let index = versions.index_of(version).unwrap
-
-  # BUG: https://github.com/inko-lang/inko/issues/639
   let prev_version = versions.opt(index - 1).map fn (v) { v.clone }
   let start = match ref prev_version {
     case Some(ver) -> ver.tag_name

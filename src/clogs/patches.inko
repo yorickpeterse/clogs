@@ -27,3 +27,9 @@ impl String {
     new.into_string
   }
 }
+
+impl Bool {
+  fn pub then[T](func: fn -> T) -> Option[T] {
+    if self { Option.Some(func.call) } else { Option.None }
+  }
+}

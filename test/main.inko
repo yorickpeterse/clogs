@@ -1,6 +1,7 @@
 import std.env
 import std.test.(Filter, Tests)
 
+import clogs.test_git
 import clogs.test_patches
 import clogs.test_version
 
@@ -8,6 +9,7 @@ class async Main {
   fn async main {
     let tests = Tests.new
 
+    test_git.tests(tests)
     test_patches.tests(tests)
     test_version.tests(tests)
 

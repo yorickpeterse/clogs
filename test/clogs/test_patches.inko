@@ -16,4 +16,9 @@ fn pub tests(t: mut Tests) {
     t.equal('foo%sbar'.replace('%s', with: ' ABC '), 'foo ABC bar')
     t.equal('foo testing bar'.replace('testing', with: 'a'), 'foo a bar')
   }
+
+  t.test('Bool.then') fn (t) {
+    t.equal(true.then fn { 10 }, Option.Some(10))
+    t.equal(false.then fn { 10 }, Option.None)
+  }
 }

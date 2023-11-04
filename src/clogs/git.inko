@@ -1,4 +1,5 @@
 # Types and methods for working with Git repositories.
+import clogs.patches
 import clogs.version.Version
 import std.fs.path.Path
 import std.io.(BufferedReader, Error as IoError)
@@ -81,17 +82,22 @@ class Commit {
   let @id: String
   let @subject: String
   let @category: String
+
+  fn static parse(line: String) -> Option[Commit] {
+    let chunks = line.split("\t")
+    let id = try chunks.next
+    let cat = try chunks.next
+    let sub = try chunks.next
+
+    (cat != '').then fn { Commit { @id = id, @category = cat, @subject = sub } }
+  }
 }
 
 class Repository {
   let @path: Path
 
-  fn static new(path: Path) -> Option[Repository] {
-    if path.directory? {
-      Option.Some(Repository { @path = path })
-    } else {
-      Option.None
-    }
+  fn static new(path: ref Path) -> Option[Repository] {
+    path.directory?.then fn move { Repository { @path = path.clone } }
   }
 
   fn versions -> Result[Stream[Version], Error] {
@@ -107,30 +113,16 @@ class Repository {
     start: String,
     end: String,
   ) -> Result[Stream[Commit], Error] {
-    let output = try run(
+    run(
       'log',
       [
         "{start}...{end}",
         "--format=%H\t%(trailers:key={TRAILER},valueonly=true,separator=%x2C)\t%s",
         '--no-merges',
-        '--grep=Changelog:',
+        "--grep={TRAILER}:",
       ]
     )
-
-    let iter = output.select_map fn (line) {
-      let chunks = line.split("\t")
-      let id = chunks.next.unwrap
-      let cat = chunks.next.unwrap
-      let sub = chunks.next.unwrap
-
-      # This can happen if the trailer is literally just `Changelog:`. In this
-      # case we ignore the commit.
-      if cat == '' { return Option.None }
-
-      Option.Some(Commit { @id = id, @category = cat, @subject = sub })
-    }
-
-    Result.Ok(iter)
+      .map fn (iter) { iter.select_map fn (line) { Commit.parse(line) } }
   }
 
   fn reverted_commits(

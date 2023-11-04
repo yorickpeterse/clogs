@@ -1,0 +1,64 @@
+import clogs.git.Repository
+import std.env
+import std.fs.file.WriteOnlyFile
+import std.fs.path.Path
+
+fn write(path: Path, content: String) {
+  WriteOnlyFile.new(path).then fn (f) { f.write_string(content) }.unwrap
+}
+
+fn with_repository(id: Int, func: fn (mut Repository, Array[String])) {
+  let dir = env.temporary_directory.join("clogs-test-{id}")
+
+  if dir.directory? { dir.remove_directory_all.unwrap }
+
+  dir.create_directory_all.unwrap
+
+  let repo = Repository.new(dir).unwrap
+
+  repo.run('init', []).unwrap
+
+  write(dir.join('a.txt'), 'a')
+  repo.run('add', ['a.txt']).unwrap
+  repo
+    .run('commit', ['--author', 'a <a@example.com>', '--message', 'Foo'])
+    .unwrap
+
+  write(dir.join('b.txt'), 'b')
+  repo.run('add', ['b.txt']).unwrap
+  repo
+    .run(
+      'commit',
+      ['--author', 'a <a@example.com>', '--message', "Bar\n\nChangelog: added"]
+    )
+    .unwrap
+
+  write(dir.join('c.txt'), 'c')
+  repo.run('add', ['c.txt']).unwrap
+  repo
+    .run(
+      'commit',
+      ['--author', 'a <a@example.com>', '--message', "Baz\n\nChangelog: fixed"]
+    )
+    .unwrap
+
+  repo.run('revert', ['HEAD', '--no-edit']).unwrap
+
+  # This is a bogus revert commit that should be ignored.
+  repo
+    .run(
+      'commit',
+      [
+        '--author',
+        'a <a@example.com>',
+        '--message',
+        'This reverts commit 123',
+        '--allow-empty'
+      ]
+    )
+    .unwrap
+
+  func.call(repo, repo.run('rev-list', ['HEAD']).unwrap.to_array)
+
+  let _ = dir.remove_directory_all
+}

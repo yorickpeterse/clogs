@@ -3,8 +3,15 @@ import std.env
 import std.fs.file.WriteOnlyFile
 import std.fs.path.Path
 
-fn write(path: Path, content: String) {
-  WriteOnlyFile.new(path).then fn (f) { f.write_string(content) }.unwrap
+fn write(path: ref Path, content: String) {
+  WriteOnlyFile.new(path.clone).then fn (f) { f.write_string(content) }.unwrap
+}
+
+fn with_file_path(id: Int, func: fn (ref Path)) {
+  let path = env.temporary_directory.join("clogs-test-file-{id}")
+
+  func.call(path)
+  if path.file? { path.remove_file }
 }
 
 fn with_repository(id: Int, func: fn (mut Repository, Array[String])) {

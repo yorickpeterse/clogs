@@ -1,3 +1,4 @@
+import clogs.patches
 import std.fs.file.(ReadOnlyFile, WriteOnlyFile)
 import std.fs.path.Path
 import std.io.(Error as IoError)
@@ -62,6 +63,17 @@ class Config {
   let @changelog: Path
   let @categories: Map[String, String]
 
+  fn static default -> Config {
+    Config {
+      @url = DEFAULT_URL,
+      @changelog = DEFAULT_CHANGELOG.to_path,
+      @categories = DEFAULT_CATEGORIES.iter.reduce(Map.new) fn (map, pair) {
+        map.set(pair.get(0), pair.get(1))
+        map
+      },
+    }
+  }
+
   fn static load(path: ref Path) -> Result[Config, Error] {
     let buf = ByteArray.new
 
@@ -86,38 +98,19 @@ class Config {
       case _ -> throw Error.InvalidChangelogPath
     }
 
-    let cats = Map.new
-
-    match doc.opt('categories') {
-      case Some(Object(map)) -> {
-        let iter = map.iter
-
-        loop {
-          match iter.next {
-            case Some({ @key = k, @value = String(v) }) -> {
-              cats.set(k, v)
-              nil
-            }
-            case Some(_) -> throw Error.InvalidCategories
-            case _ -> break
-          }
+    let cats = match doc.opt('categories') {
+      case Some(Object(map)) -> try map.iter.try_reduce(Map.new) fn (map, kv) {
+        match kv.value {
+          case String(v) -> map.set(kv.key, v)
+          case _ -> throw Error.InvalidCategories
         }
+
+        Result.Ok(map)
       }
       case _ -> throw Error.InvalidCategories
     }
 
     Result.Ok(Config { @url = url, @changelog = changelog, @categories = cats })
-  }
-
-  fn static default -> Config {
-    Config {
-      @url = DEFAULT_URL,
-      @changelog = DEFAULT_CHANGELOG.to_path,
-      @categories = DEFAULT_CATEGORIES.iter.reduce(Map.new) fn (map, pair) {
-        map.set(pair.get(0), pair.get(1))
-        map
-      },
-    }
   }
 
   fn save(path: ref Path) -> Result[Nil, IoError] {

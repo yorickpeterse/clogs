@@ -1,0 +1,239 @@
+import clogs.changelog.(Changelog, DEFAULT_CHANGELOG, Release)
+import clogs.config.Config
+import clogs.git.Commit
+import clogs.helpers.(with_file_path, write)
+import clogs.version.Version
+import std.test.Tests
+import std.time.DateTime
+
+fn config -> Config {
+  let conf = Config.default
+
+  conf.url = 'a/%s'
+  conf
+}
+
+fn release(config: ref Config) -> Release {
+  Release.new(
+    config,
+    version: Version.new(1, 0, 1),
+    previous_version: Option.Some(Version.new(1, 0, 0)),
+    date: DateTime {
+      @year = 2023,
+      @month = 8,
+      @day = 5,
+      @hour = 12,
+      @minute = 15,
+      @second = 30,
+      @sub_second = 0.0,
+      @utc_offset = 0,
+    }
+  )
+}
+
+fn pub tests(t: mut Tests) {
+  t.test('Release.add') fn (t) {
+    let cfg = config
+    let rel = release(cfg)
+
+    rel.add(Commit { @id = '123', @subject = 'foo', @category = 'added' })
+    rel.add(Commit { @id = '456', @subject = 'bar', @category = 'added' })
+
+    t.equal(rel.commits.opt('added').map fn (v) { v.size }, Option.Some(2))
+  }
+
+  t.test('Release.to_string with an empty release') fn (t) {
+    let cfg = config
+    let rel = release(cfg)
+
+    t.equal(rel.to_string, "## 1.0.1 (2023-08-05)\n\nNo changes.")
+  }
+
+  t.test('Release.to_string with changes') fn (t) {
+    let cfg = config
+    let rel = release(cfg)
+
+    rel.add(Commit { @id = '1234567890', @subject = 'a', @category = 'added' })
+    rel.add(Commit { @id = '0987654321', @subject = 'b', @category = 'added' })
+    rel.add(Commit { @id = '6789054321', @subject = 'c', @category = 'fixed' })
+
+    t.equal(
+      rel.to_string,
+      '\
+## 1.0.1 (2023-08-05)
+
+### Added
+
+- [1234567](a/1234567890): a
+- [0987654](a/0987654321): b
+
+### Fixed
+
+- [6789054](a/6789054321): c\
+      ',
+    )
+  }
+
+  t.test('Changelog.load with an invalid path') fn (t) {
+    with_file_path(t.id) fn (path) {
+      t.equal(
+        Changelog.load(path).map fn (c) { c.data }.ok,
+        Option.Some(DEFAULT_CHANGELOG),
+      )
+    }
+  }
+
+  t.test('Changelog.load with a valid path') fn (t) {
+    with_file_path(t.id) fn (path) {
+      write(path, '# Changelog')
+
+      t.equal(
+        Changelog.load(path).map fn (c) { c.data }.ok,
+        Option.Some('# Changelog'),
+      )
+    }
+  }
+
+  t.test('Changelog.add with an empty changelog') fn (t) {
+    let cfg = config
+    let rel = release(cfg)
+
+    rel.add(Commit { @id = '1234567890', @subject = 'a', @category = 'added' })
+
+    let log = Changelog { @path = 'CHANGELOG.md'.to_path, @data = '' }
+
+    log.add(rel)
+    t.equal(
+      log.data,
+      '\
+## 1.0.1 (2023-08-05)
+
+### Added
+
+- [1234567](a/1234567890): a
+'
+    )
+  }
+
+  t.test('Changelog.add with existing changelog data') fn (t) {
+    let cfg = config
+    let rel = release(cfg)
+
+    rel.add(Commit { @id = '1234567890', @subject = 'a', @category = 'added' })
+
+    let log =
+      Changelog { @path = 'CHANGELOG.md'.to_path, @data = '# Changelog' }
+
+    log.add(rel)
+    t.equal(
+      log.data,
+        '\
+# Changelog
+
+## 1.0.1 (2023-08-05)
+
+### Added
+
+- [1234567](a/1234567890): a
+'
+    )
+  }
+
+  t.test('Changelog.add with existing changelog data with a newline') fn (t) {
+    let cfg = config
+    let rel = release(cfg)
+
+    rel.add(Commit { @id = '1234567890', @subject = 'a', @category = 'added' })
+
+    let log =
+      Changelog { @path = 'CHANGELOG.md'.to_path, @data = "# Changelog\n" }
+
+    log.add(rel)
+    t.equal(
+      log.data,
+        '\
+# Changelog
+
+## 1.0.1 (2023-08-05)
+
+### Added
+
+- [1234567](a/1234567890): a
+'
+    )
+  }
+
+  t.test('Changelog.add with existing release') fn (t) {
+    let cfg = config
+    let rel = release(cfg)
+
+    rel.add(Commit { @id = '1234567890', @subject = 'a', @category = 'added' })
+
+    let log = Changelog {
+      @path = 'CHANGELOG.md'.to_path,
+      @data = '# Changelog
+
+## 1.0.0 (2023-08-01)
+
+Foo',
+    }
+
+    log.add(rel)
+    t.equal(
+      log.data,
+        "\
+# Changelog
+
+## 1.0.1 (2023-08-05)
+
+### Added
+
+- [1234567](a/1234567890): a
+
+## 1.0.0 (2023-08-01)
+
+Foo"
+    )
+  }
+
+  t.test('Changelog.add with existing release at the start of the file') fn (t) {
+    let cfg = config
+    let rel = release(cfg)
+
+    rel.add(Commit { @id = '1234567890', @subject = 'a', @category = 'added' })
+
+    let log = Changelog {
+      @path = 'CHANGELOG.md'.to_path,
+      @data = '## 1.0.0 (2023-08-01)
+
+Foo',
+    }
+
+    log.add(rel)
+    t.equal(
+      log.data,
+        "\
+## 1.0.1 (2023-08-05)
+
+### Added
+
+- [1234567](a/1234567890): a
+
+## 1.0.0 (2023-08-01)
+
+Foo"
+    )
+  }
+
+  t.test('Changelog.save with an invalid file path') fn (t) {
+    with_file_path(t.id) fn (path) {
+      t.true(Changelog { @path = path.join('a.json'), @data = '' }.save.error?)
+    }
+  }
+
+  t.test('Changelog.save with a valid file path') fn (t) {
+    with_file_path(t.id) fn (path) {
+      t.true(Changelog { @path = path.clone, @data = '' }.save.ok?)
+    }
+  }
+}

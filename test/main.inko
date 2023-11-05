@@ -1,6 +1,8 @@
 import std.env
 import std.test.(Filter, Tests)
 
+import clogs.test_changelog
+import clogs.test_cli
 import clogs.test_config
 import clogs.test_git
 import clogs.test_patches
@@ -10,6 +12,8 @@ class async Main {
   fn async main {
     let tests = Tests.new
 
+    test_changelog.tests(tests)
+    test_cli.tests(tests)
     test_config.tests(tests)
     test_git.tests(tests)
     test_patches.tests(tests)

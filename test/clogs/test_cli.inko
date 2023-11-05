@@ -1,0 +1,35 @@
+import clogs.cli
+import optparse.Options
+import std.io.Write
+import std.test.Tests
+
+class Writer {
+  let @buffer: mut ByteArray
+}
+
+impl Write for Writer {
+  fn pub mut write_string(string: String) -> Result[Int, Never] {
+    @buffer.append(string.to_byte_array)
+    Result.Ok(string.size)
+  }
+
+  fn pub mut write_bytes(bytes: ref ByteArray) -> Result[Int, Never] {
+    @buffer.copy_from(bytes, at: 0, size: bytes.size)
+    Result.Ok(bytes.size)
+  }
+
+  fn pub mut flush -> Result[Nil, Never] {
+    Result.Ok(nil)
+  }
+}
+
+fn pub tests(t: mut Tests) {
+  t.test('cli.show_help') fn (t) {
+    let opts = Options.new
+    let buf = ByteArray.new
+    let writer = Writer { @buffer = buf } as Write
+
+    cli.show_help(opts, writer)
+    t.true(buf.to_string.contains?('clogs'))
+  }
+}

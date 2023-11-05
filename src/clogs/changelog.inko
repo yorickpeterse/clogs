@@ -72,7 +72,7 @@ impl ToString for Release {
         let url = @config.url.replace('%s', c.id)
         let short = c.id.slice(start: 0, size: 7)
 
-        markdown.push("\n* [{short}]({url}): {c.subject}")
+        markdown.push("\n- [{short}]({url}): {c.subject}")
       }
     }
 
@@ -84,7 +84,7 @@ class Changelog {
   let @path: Path
   let @data: String
 
-  fn static load(path: Path) -> Result[Changelog, Error] {
+  fn static load(path: ref Path) -> Result[Changelog, Error] {
     let data = if path.file? {
       let buf = ByteArray.new
 
@@ -94,29 +94,34 @@ class Changelog {
       DEFAULT_CHANGELOG
     }
 
-    Result.Ok(Changelog { @path = path, @data = data })
+    Result.Ok(Changelog { @path = path.clone, @data = data })
   }
 
   fn pub mut add(release: ref Release) {
     let prev_idx = match release.previous_version {
       case Some(v) -> @data
-        .byte_index(of: "\n## {v}", starting_at: 0)
+        .byte_index(of: "## {v} (", starting_at: 0)
         .unwrap_or(-1)
       case _ -> -1
     }
 
-    # TODO: test what happens if prev_idx == 0
     @data = if prev_idx >= 0 {
       let new = @data.slice(start: 0, size: prev_idx - 1)
 
-      new.push(LF)
-      new.push(LF)
+      if new.size > 0 { new.push(LF) }
       new.append(release.to_string.to_byte_array)
+      new.push(LF)
       new.push(LF)
       new.append(@data.slice(start: prev_idx, size: @data.size - prev_idx))
       new.into_string
     } else {
-      let sep = if @data.ends_with?("\n") { "\n" } else { "\n\n" }
+      let sep = if @data.empty? {
+        ''
+      } else if @data.ends_with?("\n") {
+        "\n"
+      } else {
+        "\n\n"
+      }
 
       StringBuffer
         .from_array([@data, sep, release.to_string, "\n"])

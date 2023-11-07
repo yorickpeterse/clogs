@@ -32,4 +32,29 @@ fn pub tests(t: mut Tests) {
     cli.show_help(opts, writer)
     t.true(buf.to_string.contains?('clogs'))
   }
+
+  t.test('cli.run with the help flag') fn (t) {
+    let buf = ByteArray.new
+    let writer = Writer { @buffer = buf } as Write
+    let res = cli.run(['--help'], '.'.to_path, writer)
+
+    t.true(res.ok?)
+    t.true(buf.to_string.contains?('Show this help message'))
+  }
+
+  t.test('cli.run with the version flag') fn (t) {
+    let buf = ByteArray.new
+    let writer = Writer { @buffer = buf } as Write
+    let res = cli.run(['--version'], '.'.to_path, writer)
+
+    t.true(res.ok?)
+    t.true(buf.to_string.contains?('clogs'))
+  }
+
+  t.test('cli.run with an invalid option') fn (t) {
+    let buf = ByteArray.new
+    let writer = Writer { @buffer = buf } as Write
+
+    t.true(cli.run(['--foobar'], '.'.to_path, writer).error?)
+  }
 }

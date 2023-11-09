@@ -14,7 +14,6 @@ let DEFAULT_CHANGELOG = '<!-- This changelog is managed by \
   https://github.com/yorickpeterse/clogs -->
 # Changelog'
 
-# TODO: fix
 fn format_date(date: ref DateTime) -> String {
   "{date.year}-{date.month.to_string.pad_start('0', chars: 2)}\
     -{date.day.to_string.pad_start('0', chars: 2)}"

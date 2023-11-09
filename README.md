@@ -119,9 +119,18 @@ Generating changelogs comes with the following workflow requirements:
 
 ## Installation
 
+To build from source:
+
 ```
 inko pkg sync
 inko build -o build/clogs
+```
+
+If you're using Arch Linux, [an AUR
+package](https://aur.archlinux.org/packages/git-clogs) is also available:
+
+```
+yay -S git-clogs
 ```
 
 ## License

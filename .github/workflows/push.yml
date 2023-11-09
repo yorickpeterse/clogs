@@ -18,8 +18,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Configuring Git
         run: |
-          git config user.email git@example.com
-          git config user.name git
+          git config --global user.email git@example.com
+          git config --global user.name git
       - run: inko --version
       - run: inko pkg sync
       - run: inko test

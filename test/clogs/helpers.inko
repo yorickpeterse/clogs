@@ -1,10 +1,17 @@
 import clogs.git.Repository
 import std.env
-import std.fs.file.WriteOnlyFile
+import std.fs.file.(ReadOnlyFile, WriteOnlyFile)
 import std.fs.path.Path
 
 fn write(path: ref Path, content: String) {
   WriteOnlyFile.new(path.clone).then fn (f) { f.write_string(content) }.unwrap
+}
+
+fn read(path: ref Path) -> String {
+  let buf = ByteArray.new
+
+  ReadOnlyFile.new(path.clone).then fn (f) { f.read_all(buf) }.unwrap
+  buf.into_string
 }
 
 fn with_file_path(id: Int, func: fn (ref Path)) {
@@ -14,6 +21,14 @@ fn with_file_path(id: Int, func: fn (ref Path)) {
   if path.file? { path.remove_file }
 }
 
+fn with_directory(id: Int, func: fn (ref Path)) {
+  let path = env.temporary_directory.join("clogs-test-directory-{id}")
+
+  path.create_directory_all
+  func.call(path)
+  path.remove_directory_all
+}
+
 fn with_repository(id: Int, func: fn (mut Repository, Array[String])) {
   let dir = env.temporary_directory.join("clogs-test-{id}")
 
@@ -21,7 +36,7 @@ fn with_repository(id: Int, func: fn (mut Repository, Array[String])) {
 
   dir.create_directory_all.unwrap
 
-  let repo = Repository.new(dir).unwrap
+  let repo = Repository.new(dir)
 
   repo.run('init', []).unwrap
 

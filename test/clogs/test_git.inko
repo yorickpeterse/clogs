@@ -83,7 +83,7 @@ fn pub tests(t: mut Tests) {
   }
 
   t.test('Repository.run with a valid command') fn (t) {
-    let repo = Repository.new('.'.to_path).unwrap
+    let repo = Repository.new('.'.to_path)
     let out = repo.run('branch', ['--no-color'])
 
     t.equal(
@@ -93,7 +93,7 @@ fn pub tests(t: mut Tests) {
   }
 
   t.test('Repository.run with an invalid command') fn (t) {
-    let repo = Repository.new('.'.to_path).unwrap
+    let repo = Repository.new('.'.to_path)
 
     t.true(
       match repo.run('kittens', []) {

@@ -1,4 +1,8 @@
 import clogs.cli
+import clogs.config.(CONFIG_FILE, Config)
+import clogs.git.Repository
+import clogs.helpers.(read, with_directory, with_repository)
+import clogs.version.Version
 import optparse.Options
 import std.io.Write
 import std.test.Tests
@@ -42,6 +46,15 @@ fn pub tests(t: mut Tests) {
     t.true(buf.to_string.contains?('Show this help message'))
   }
 
+  t.test('cli.run without any arguments') fn (t) {
+    let buf = ByteArray.new
+    let writer = Writer { @buffer = buf } as Write
+    let res = cli.run([], '.'.to_path, writer)
+
+    t.true(res.ok?)
+    t.true(buf.to_string.contains?('Show this help message'))
+  }
+
   t.test('cli.run with the version flag') fn (t) {
     let buf = ByteArray.new
     let writer = Writer { @buffer = buf } as Write
@@ -56,5 +69,101 @@ fn pub tests(t: mut Tests) {
     let writer = Writer { @buffer = buf } as Write
 
     t.true(cli.run(['--foobar'], '.'.to_path, writer).error?)
+  }
+
+  t.test('cli.run with the "init" command') fn (t) {
+    let buf = ByteArray.new
+    let writer = Writer { @buffer = buf } as Write
+
+    with_directory(t.id) fn (path) {
+      t.true(cli.run(['init'], path, writer).ok?)
+      t.true(path.join(CONFIG_FILE).file?)
+    }
+  }
+
+  t.test('cli.run with the "init" command and an existing configuration') fn (t) {
+    let buf = ByteArray.new
+    let writer = Writer { @buffer = buf } as Write
+
+    with_directory(t.id) fn (path) {
+      Config.default.save(path.join(CONFIG_FILE)).unwrap
+      t.true(cli.run(['init'], path, writer).error?)
+    }
+  }
+
+  t.test('cli.run with an invalid version') fn (t) {
+    let buf = ByteArray.new
+    let writer = Writer { @buffer = buf } as Write
+
+    with_directory(t.id) fn (path) {
+      t.true(cli.run(['a.b.c'], path, writer).error?)
+    }
+  }
+
+  t.test('cli.run with a valid untagged version') fn (t) {
+    let buf = ByteArray.new
+    let writer = Writer { @buffer = buf } as Write
+
+    with_repository(t.id) fn (repo, _) {
+      Config.default.save(repo.path.join(CONFIG_FILE)).unwrap
+      t.true(cli.run(['1.0.0'], repo.path, writer).ok?)
+
+      let changelog = read(repo.path.join('CHANGELOG.md'))
+
+      t.true(changelog.contains?('Bar'))
+      t.false(changelog.contains?('Foo'))
+      t.false(changelog.contains?('Baz'))
+    }
+  }
+
+  t.test('cli.run with an already tagged version') fn (t) {
+    let buf = ByteArray.new
+    let writer = Writer { @buffer = buf } as Write
+
+    with_repository(t.id) fn (repo, _) {
+      Config.default.save(repo.path.join(CONFIG_FILE)).unwrap
+      repo.run('tag', ['1.0.0']).unwrap
+      t.true(cli.run(['1.0.0'], repo.path, writer).ok?)
+
+      let changelog = read(repo.path.join('CHANGELOG.md'))
+
+      t.true(changelog.contains?('Bar'))
+      t.false(changelog.contains?('Foo'))
+      t.false(changelog.contains?('Baz'))
+    }
+  }
+
+  t.test('cli.run with an invalid configuration file') fn (t) {
+    let buf = ByteArray.new
+    let writer = Writer { @buffer = buf } as Write
+
+    with_directory(t.id) fn (path) {
+      t.true(
+        cli
+          .run(['--config', 'clogs-invalid.json', '1.0.0'], path, writer)
+          .error?
+      )
+    }
+  }
+
+  t.test('cli.run with an invalid Git repository') fn (t) {
+    let buf = ByteArray.new
+    let writer = Writer { @buffer = buf } as Write
+
+    with_directory(t.id) fn (path) {
+      Config.default.save(path.join(CONFIG_FILE)).unwrap
+      t.true(cli.run(['1.0.0'], path, writer).error?)
+    }
+  }
+
+  t.test('cli.run with an empty repository') fn (t) {
+    let buf = ByteArray.new
+    let writer = Writer { @buffer = buf } as Write
+
+    with_directory(t.id) fn (path) {
+      Config.default.save(path.join(CONFIG_FILE)).unwrap
+      Repository.new(path).run('init', []).unwrap
+      t.true(cli.run(['1.0.0'], path, writer).error?)
+    }
   }
 }

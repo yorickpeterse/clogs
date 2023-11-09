@@ -96,8 +96,8 @@ class Commit {
 class Repository {
   let @path: Path
 
-  fn static new(path: ref Path) -> Option[Repository] {
-    path.directory?.then fn move { Repository { @path = path.clone } }
+  fn static new(path: ref Path) -> Repository {
+    Repository { @path = path.clone }
   }
 
   fn versions -> Result[Stream[Version], Error] {

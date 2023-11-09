@@ -62,17 +62,26 @@ fn pub run(
     return Result.Ok(nil)
   }
 
-  let config_path =
-    matches.value('config').unwrap_or_else fn { CONFIG_FILE }.to_path
+  let config_path = matches
+    .value('config')
+    .map fn (v) { v.to_path }
+    .unwrap_or_else fn { working_directory.join(CONFIG_FILE) }
+    .to_path
 
   match matches.remaining.opt(0) {
+    case Some('init') if config_path.file? ->
+      Result.Error("the configuration file '{config_path}' already exists")
     case Some('init') -> {
       Config.default.save(config_path)
       Result.Ok(nil)
     }
-    case Some(v) -> match Version.parse(v) {
-      case Some(v) -> update_changelog(matches, v, config_path)
-      case _ -> throw 'a version in the format X.Y.Z is required'
+    case Some(val) -> match Version.parse(val) {
+      case Some(version) -> update(
+        config_path,
+        version,
+        matches.value('end').unwrap_or('HEAD')
+      )
+      case _ -> Result.Error('a version in the format X.Y.Z is required')
     }
     case _ -> {
       show_help(opts, output)
@@ -81,10 +90,10 @@ fn pub run(
   }
 }
 
-fn update_changelog(
-  matches: Matches,
-  version: Version,
+fn update(
   config_path: Path,
+  version: Version,
+  end: String,
 ) -> Result[Nil, String] {
   let config = match Config.load(config_path) {
     case Ok(v) -> v
@@ -92,11 +101,7 @@ fn update_changelog(
   }
 
   let config_dir = config_path.directory
-  let repo = match Repository.new(config_dir) {
-    case Some(v) -> v
-    case _ -> throw "{config_dir} isn't a Git repository"
-  }
-
+  let repo = Repository.new(config_dir)
   let versions = match repo.versions {
     case Ok(iter) -> iter.to_array
     case Error(e) -> throw "failed to get the Git tags: {e}"
@@ -117,7 +122,6 @@ fn update_changelog(
     }
   }
 
-  let end = matches.value('end').unwrap_or('HEAD')
   let commits = try repo
     .changelog_commits(start, end)
     .map_error fn (e) { "failed to get the changelog commits: {e}" }

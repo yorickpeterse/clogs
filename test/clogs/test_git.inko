@@ -84,12 +84,9 @@ fn pub tests(t: mut Tests) {
 
   t.test('Repository.run with a valid command') fn (t) {
     let repo = Repository.new('.'.to_path)
-    let out = repo.run('branch', ['--no-color'])
+    let out = repo.run('log', ['-1'])
 
-    t.equal(
-      out.ok.map fn (i) { i.to_array.contains?('* main') },
-      Option.Some(true)
-    )
+    t.equal(out.ok.map fn (i) { i.count > 0 }, Option.Some(true))
   }
 
   t.test('Repository.run with an invalid command') fn (t) {

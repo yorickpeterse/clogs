@@ -83,10 +83,14 @@ fn pub tests(t: mut Tests) {
   }
 
   t.test('Repository.run with a valid command') fn (t) {
-    let repo = Repository.new('.'.to_path)
-    let out = repo.run('log', ['-1'])
+    with_repository(t.id) fn (repo, _) {
+      let out = repo.run('status', [])
 
-    t.equal(out.ok.map fn (i) { i.count > 0 }, Option.Some(true))
+      t.equal(
+        out.map fn (i) { i.count > 0 }.map_error fn (e) { e.to_string },
+        Result.Ok(true)
+      )
+    }
   }
 
   t.test('Repository.run with an invalid command') fn (t) {

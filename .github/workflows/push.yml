@@ -16,6 +16,10 @@ jobs:
     steps:
       - run: microdnf install --quiet --assumeyes tar git
       - uses: actions/checkout@v4
+      - name: Configuring Git
+        run: |
+          git config user.email git@example.com
+          git config user.name git
       - run: inko --version
       - run: inko pkg sync
       - run: inko test

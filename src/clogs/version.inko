@@ -56,7 +56,7 @@ impl ToString for Version {
   }
 }
 
-impl Equal[Version] for Version {
+impl Equal[ref Version] for Version {
   fn pub ==(other: ref Version) -> Bool {
     @major == other.major and @minor == other.minor and @patch == other.patch
   }

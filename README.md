@@ -106,7 +106,7 @@ changelog.
 
 ## Requirements
 
-- Inko 0.13.1 or newer
+- Inko 0.13.2 or newer
 - Git
 
 Generating changelogs comes with the following workflow requirements:

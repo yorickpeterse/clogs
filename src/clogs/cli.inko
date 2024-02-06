@@ -1,7 +1,6 @@
 import clogs.changelog.(Changelog, Release)
 import clogs.config.(CONFIG_FILE, Config)
 import clogs.git.(Commit, Repository)
-import clogs.patches
 import clogs.version.Version
 import optparse.(Help, Matches, Options)
 import std.fs.file.(ReadOnlyFile, WriteOnlyFile)

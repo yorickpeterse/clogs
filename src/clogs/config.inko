@@ -1,4 +1,3 @@
-import clogs.patches
 import std.fs.file.(ReadOnlyFile, WriteOnlyFile)
 import std.fs.path.Path
 import std.io.(Error as IoError)

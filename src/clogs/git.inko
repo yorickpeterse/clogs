@@ -1,5 +1,4 @@
 # Types and methods for working with Git repositories.
-import clogs.patches
 import clogs.version.Version
 import std.fs.path.Path
 import std.io.(BufferedReader, Error as IoError)

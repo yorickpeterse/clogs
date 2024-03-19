@@ -133,6 +133,13 @@ package](https://aur.archlinux.org/packages/git-clogs) is also available:
 yay -S git-clogs
 ```
 
+A Fedora package is available on [copr](https://copr.fedorainfracloud.org/coprs/):
+
+```
+sudo dnf copr enable yorickpeterse/clogs
+sudo dnf install clogs
+```
+
 ## License
 
 All source code in this repository is licensed under the Mozilla Public License

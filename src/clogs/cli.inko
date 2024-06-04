@@ -1,15 +1,15 @@
-import clogs.changelog.(Changelog, Release)
-import clogs.config.(CONFIG_FILE, Config)
-import clogs.git.(Commit, Repository)
-import clogs.version.Version
-import optparse.(Help, Matches, Options)
-import std.fs.file.(ReadOnlyFile, WriteOnlyFile)
-import std.fs.path.Path
-import std.io.Write
-import std.set.Set
-import std.string.StringBuffer
-import std.sys.(exit)
-import std.time.DateTime
+import clogs.changelog (Changelog, Release)
+import clogs.config (CONFIG_FILE, Config)
+import clogs.git (Commit, Repository)
+import clogs.version (Version)
+import std.fs.file (ReadOnlyFile, WriteOnlyFile)
+import std.fs.path (Path)
+import std.io (Write)
+import std.optparse (Help, Matches, Options)
+import std.set (Set)
+import std.string (StringBuffer)
+import std.sys (exit)
+import std.time (DateTime)
 
 let VERSION = '0.3.0'
 
@@ -19,19 +19,15 @@ fn show_help(options: ref Options, output: mut Write) {
     .usage('[OPTIONS] [VERSION | COMMAND]')
     .section('Examples')
     .line(
-      'clogs 1.2.3                      Generate a changelog for version 1.2.3'
+      'clogs 1.2.3                      Generate a changelog for version 1.2.3',
     )
-    .line(
-      'clogs 1.2.3 --config foo.json    Use a custom configuration file'
-    )
-    .line(
-      'clogs init                       Generate a new configuration file'
-    )
+    .line('clogs 1.2.3 --config foo.json    Use a custom configuration file')
+    .line('clogs init                       Generate a new configuration file')
     .section('Options')
     .options(options)
     .to_string
 
-  output.write_string(help).unwrap
+  output.write_string(help).get
 }
 
 fn pub run(
@@ -57,30 +53,29 @@ fn pub run(
   }
 
   if matches.contains?('version') {
-    output.print("clogs {VERSION}").unwrap
+    output.print('clogs ${VERSION}').get
     return Result.Ok(nil)
   }
 
-  let config_path = matches
-    .value('config')
-    .map fn (v) { v.to_path }
-    .unwrap_or_else fn { working_directory.join(CONFIG_FILE) }
-    .to_path
+  let config_path = matches.value('config').map(fn (v) { v.to_path }).or_else(
+    fn { working_directory.join(CONFIG_FILE) },
+  )
 
   match matches.remaining.opt(0) {
-    case Some('init') if config_path.file? ->
-      Result.Error("the configuration file '{config_path}' already exists")
+    case Some('init') if config_path.file? -> {
+      Result.Error("the configuration file '${config_path}' already exists")
+    }
     case Some('init') -> {
       Config.default.save(config_path)
       Result.Ok(nil)
     }
-    case Some(val) -> match Version.parse(val) {
-      case Some(version) -> update(
-        config_path,
-        version,
-        matches.value('end').unwrap_or('HEAD')
-      )
-      case _ -> Result.Error('a version in the format X.Y.Z is required')
+    case Some(val) -> {
+      match Version.parse(val) {
+        case Some(version) -> {
+          update(config_path, version, matches.value('end').or('HEAD'))
+        }
+        case _ -> Result.Error('a version in the format X.Y.Z is required')
+      }
     }
     case _ -> {
       show_help(opts, output)
@@ -96,50 +91,53 @@ fn update(
 ) -> Result[Nil, String] {
   let config = match Config.load(config_path) {
     case Ok(v) -> v
-    case Error(e) -> throw "failed to read {config_path}: {e}"
+    case Error(e) -> throw 'failed to read ${config_path}: ${e}'
   }
 
   let config_dir = config_path.directory
   let repo = Repository.new(config_dir)
   let versions = match repo.versions {
     case Ok(iter) -> iter.to_array
-    case Error(e) -> throw "failed to get the Git tags: {e}"
+    case Error(e) -> throw 'failed to get the Git tags: ${e}'
   }
 
   if versions.contains?(version).false? { versions.push(version.clone) }
+
   versions.sort
 
   # At this point it's guaranteed our version is in the Array, so it's safe to
-  # unwrap the index.
-  let index = versions.index_of(version).unwrap
-  let prev_version = versions.opt(index - 1).map fn (v) { v.clone }
+  # get the index.
+  let index = versions.index_of(version).get
+  let prev_version = versions.opt(index - 1).map(fn (v) { v.clone })
   let start = match ref prev_version {
     case Some(ver) -> ver.tag_name
-    case _ -> match repo.first_commit {
-      case Ok(v) -> v
-      case Error(e) -> throw "failed to get the first commit: {e}"
+    case _ -> {
+      match repo.first_commit {
+        case Ok(v) -> v
+        case Error(e) -> throw 'failed to get the first commit: ${e}'
+      }
     }
   }
 
-  let commits = try repo
-    .changelog_commits(start, end)
-    .map_error fn (e) { "failed to get the changelog commits: {e}" }
+  let commits = try repo.changelog_commits(start, end).map_error(fn (e) {
+    'failed to get the changelog commits: ${e}'
+  })
 
-  let reverts = try repo
-    .reverted_commits(start, end)
-    .map_error fn (e) { "failed to get the list of reverted commits: {e}" }
+  let reverts = try repo.reverted_commits(start, end).map_error(fn (e) {
+    'failed to get the list of reverted commits: ${e}'
+  })
 
   let release = Release.new(config, version, prev_version, date: DateTime.utc)
 
-  commits.select fn (c) { reverts.contains?(c.id).false? }.each fn (c) {
+  commits.select(fn (c) { reverts.contains?(c.id).false? }).each(fn (c) {
     release.add(c)
-  }
+  })
 
   let out_path = config_dir.join(config.changelog)
-  let changelog = try Changelog
-    .load(out_path.clone)
-    .map_error fn (e) { "failed to read {out_path}: {e}" }
+  let changelog = try Changelog.load(out_path.clone).map_error(fn (e) {
+    'failed to read ${out_path}: ${e}'
+  })
 
   changelog.add(release)
-  changelog.save.map_error fn (e) { "failed to update {out_path}: {e}" }
+  changelog.save.map_error(fn (e) { 'failed to update ${out_path}: ${e}' })
 }

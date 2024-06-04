@@ -1,10 +1,10 @@
 # Types and methods for working with Git repositories.
-import clogs.version.Version
-import std.fs.path.Path
-import std.io.(BufferedReader, Error as IoError)
-import std.iter.(Iter, Stream)
-import std.set.Set
-import std.string.ToString
+import clogs.version (Version)
+import std.fs.path (Path)
+import std.io (BufferedReader, Error as IoError)
+import std.iter (Iter, Stream)
+import std.set (Set)
+import std.string (ToString)
 import std.sys
 
 let LF = 10
@@ -38,7 +38,7 @@ class enum Error {
 impl ToString for Error {
   fn pub to_string -> String {
     match self {
-      case Invalid(e) -> "failed to run the 'git' command: {e}"
+      case Invalid(e) -> "failed to run the 'git' command: ${e}"
       case Exit(e) -> e
     }
   }
@@ -48,16 +48,16 @@ impl ToString for Error {
 #
 # The produced lines _don't_ include the trailing newline.
 class Output {
-  let @stdout: BufferedReader[sys.Stdout]
   let @child: sys.ChildProcess
+  let @stdout: BufferedReader[sys.Stdout]
   let @buffer: ByteArray
 
   fn static new(child: sys.ChildProcess) -> Output {
-    Output {
-      @stdout = BufferedReader.new(child.stdout),
-      @child = child,
-      @buffer = ByteArray.new,
-    }
+    Output(
+      stdout: BufferedReader.new(child.stdout),
+      child: child,
+      buffer: ByteArray.new,
+    )
   }
 }
 
@@ -66,7 +66,8 @@ impl Iter[String] for Output {
     match @stdout.read_line(@buffer) {
       case Ok(0) -> Option.None
       case Ok(_) -> {
-        if @buffer.last.unwrap_or(0) == LF { @buffer.pop }
+        if @buffer.last.or(0) == LF { @buffer.pop }
+
         Option.Some(@buffer.drain_to_string)
       }
       # Pipe errors should be rare, and possibly never occur in the first place.
@@ -83,12 +84,12 @@ class Commit {
   let @category: String
 
   fn static parse(line: String) -> Option[Commit] {
-    let chunks = line.split("\t")
+    let chunks = line.split('\t')
     let id = try chunks.next
     let cat = try chunks.next
     let sub = try chunks.next
 
-    (cat != '').then fn { Commit { @id = id, @category = cat, @subject = sub } }
+    (cat != '').then(fn { Commit(id: id, category: cat, subject: sub) })
   }
 }
 
@@ -96,16 +97,16 @@ class Repository {
   let @path: Path
 
   fn static new(path: ref Path) -> Repository {
-    Repository { @path = path.clone }
+    Repository(path.clone)
   }
 
   fn versions -> Result[Stream[Version], Error] {
-    run('tag', []).map fn (i) { i.select_map fn (n) { Version.from_tag(n) } }
+    run('tag', []).map(fn (i) { i.select_map(fn (n) { Version.from_tag(n) }) })
   }
 
   fn first_commit -> Result[String, Error] {
-    # Git errors if there are no commits, so we can safely unwrap here.
-    run('rev-list', ['--max-parents=0', 'HEAD']).map fn (i) { i.next.unwrap }
+    # Git errors if there are no commits, so we can safely get here.
+    run('rev-list', ['--max-parents=0', 'HEAD']).map(fn (i) { i.next.get })
   }
 
   fn changelog_commits(
@@ -115,13 +116,13 @@ class Repository {
     run(
       'log',
       [
-        "{start}...{end}",
-        "--format=%H\t%(trailers:key={TRAILER},valueonly=true,separator=%x2C)\t%s",
+        '${start}...${end}',
+        '--format=%H\t%(trailers:key=${TRAILER},valueonly=true,separator=%x2C)\t%s',
         '--no-merges',
-        "--grep={TRAILER}:",
-      ]
+        '--grep=${TRAILER}:',
+      ],
     )
-      .map fn (iter) { iter.select_map fn (line) { Commit.parse(line) } }
+      .map(fn (iter) { iter.select_map(fn (line) { Commit.parse(line) }) })
   }
 
   fn reverted_commits(
@@ -130,20 +131,27 @@ class Repository {
   ) -> Result[Set[String], Error] {
     let out = run(
       'log',
-      ["{start}...{end}", '--format=%b', '--no-merges', "--grep={REVERT_TEXT}"]
+      [
+        '${start}...${end}',
+        '--format=%b',
+        '--no-merges',
+        '--grep=${REVERT_TEXT}',
+      ],
     )
 
-    out.map fn (iter) {
-      iter.reduce(Set.new) fn (set, line) {
+    out.map(fn (iter) {
+      iter.reduce(Set.new, fn (set, line) {
         if line.starts_with?(REVERT_TEXT).false? { return set }
 
-        let sha =
-          line.slice(start: REVERT_TEXT.size, size: SHA_SIZE).into_string
+        let sha = line
+          .slice(start: REVERT_TEXT.size, size: SHA_SIZE)
+          .into_string
 
         if sha.size == SHA_SIZE { set.insert(sha) }
+
         set
-      }
-    }
+      })
+    })
   }
 
   fn run(command: String, arguments: Array[String]) -> Result[Output, Error] {
@@ -157,8 +165,8 @@ class Repository {
     cmd.stderr(sys.Stream.Piped)
     cmd.stdout(sys.Stream.Piped)
 
-    let child = try cmd.spawn.map_error fn (e) { Error.Invalid(e) }
-    let status = try child.wait.map_error fn (e) { Error.Invalid(e) }
+    let child = try cmd.spawn.map_error(fn (e) { Error.Invalid(e) })
+    let status = try child.wait.map_error(fn (e) { Error.Invalid(e) })
 
     if status.success? {
       Result.Ok(Output.new(child))
@@ -168,15 +176,17 @@ class Repository {
         case Ok(_) -> {
           # Trailing newlines may mess up error message formatting, so we get
           # rid of them.
-          while out.last.unwrap_or(0) == LF { out.pop }
+          while out.last.or(0) == LF { out.pop }
+
           out.into_string
         }
         # Yielding a dedicated error for this isn't useful as the end user can't
         # do anything in particular about a broken pipe (if that even ever
         # happens in this setup) that they can't do using this more generic
         # error.
-        case Error(e) -> "the 'git' process exited with a non-zero status, \
-          but the STDERR stream couldn't be read: {e}"
+        case Error(e) -> {
+          "the 'git' process exited with a non-zero status, but the STDERR stream couldn't be read: ${e}"
+        }
       }
 
       Result.Error(Error.Exit(message))

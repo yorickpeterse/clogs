@@ -1,25 +1,25 @@
 import clogs.cli
-import clogs.config.(CONFIG_FILE, Config)
-import clogs.git.Repository
-import clogs.helpers.(read, with_directory, with_repository)
-import clogs.version.Version
-import optparse.Options
-import std.io.Write
-import std.test.Tests
+import clogs.config (CONFIG_FILE, Config)
+import clogs.git (Repository)
+import clogs.helpers (read, with_directory, with_repository)
+import clogs.version (Version)
+import std.io (Write)
+import std.optparse (Options)
+import std.test (Tests)
 
 class Writer {
   let @buffer: mut ByteArray
 }
 
 impl Write for Writer {
-  fn pub mut write_string(string: String) -> Result[Int, Never] {
+  fn pub mut write_string(string: String) -> Result[Nil, Never] {
     @buffer.append(string.to_byte_array)
-    Result.Ok(string.size)
+    Result.Ok(nil)
   }
 
-  fn pub mut write_bytes(bytes: ref ByteArray) -> Result[Int, Never] {
+  fn pub mut write_bytes(bytes: ref ByteArray) -> Result[Nil, Never] {
     @buffer.copy_from(bytes, at: 0, size: bytes.size)
-    Result.Ok(bytes.size)
+    Result.Ok(nil)
   }
 
   fn pub mut flush -> Result[Nil, Never] {
@@ -28,84 +28,87 @@ impl Write for Writer {
 }
 
 fn pub tests(t: mut Tests) {
-  t.test('cli.show_help') fn (t) {
+  t.test('cli.show_help', fn (t) {
     let opts = Options.new
     let buf = ByteArray.new
-    let writer = Writer { @buffer = buf } as Write
+    let writer = Writer(buf) as Write
 
     cli.show_help(opts, writer)
     t.true(buf.to_string.contains?('clogs'))
-  }
+  })
 
-  t.test('cli.run with the help flag') fn (t) {
+  t.test('cli.run with the help flag', fn (t) {
     let buf = ByteArray.new
-    let writer = Writer { @buffer = buf } as Write
+    let writer = Writer(buf) as Write
     let res = cli.run(['--help'], '.'.to_path, writer)
 
     t.true(res.ok?)
     t.true(buf.to_string.contains?('Show this help message'))
-  }
+  })
 
-  t.test('cli.run without any arguments') fn (t) {
+  t.test('cli.run without any arguments', fn (t) {
     let buf = ByteArray.new
-    let writer = Writer { @buffer = buf } as Write
+    let writer = Writer(buf) as Write
     let res = cli.run([], '.'.to_path, writer)
 
     t.true(res.ok?)
     t.true(buf.to_string.contains?('Show this help message'))
-  }
+  })
 
-  t.test('cli.run with the version flag') fn (t) {
+  t.test('cli.run with the version flag', fn (t) {
     let buf = ByteArray.new
-    let writer = Writer { @buffer = buf } as Write
+    let writer = Writer(buf) as Write
     let res = cli.run(['--version'], '.'.to_path, writer)
 
     t.true(res.ok?)
     t.true(buf.to_string.contains?('clogs'))
-  }
+  })
 
-  t.test('cli.run with an invalid option') fn (t) {
+  t.test('cli.run with an invalid option', fn (t) {
     let buf = ByteArray.new
-    let writer = Writer { @buffer = buf } as Write
+    let writer = Writer(buf) as Write
 
     t.true(cli.run(['--foobar'], '.'.to_path, writer).error?)
-  }
+  })
 
-  t.test('cli.run with the "init" command') fn (t) {
+  t.test('cli.run with the "init" command', fn (t) {
     let buf = ByteArray.new
-    let writer = Writer { @buffer = buf } as Write
+    let writer = Writer(buf) as Write
 
-    with_directory(t.id) fn (path) {
+    with_directory(t.id, fn (path) {
       t.true(cli.run(['init'], path, writer).ok?)
       t.true(path.join(CONFIG_FILE).file?)
-    }
-  }
+    })
+  })
 
-  t.test('cli.run with the "init" command and an existing configuration') fn (t) {
+  t.test(
+    'cli.run with the "init" command and an existing configuration',
+    fn (t) {
+      let buf = ByteArray.new
+      let writer = Writer(buf) as Write
+
+      with_directory(t.id, fn (path) {
+        Config.default.save(path.join(CONFIG_FILE)).get
+        t.true(cli.run(['init'], path, writer).error?)
+      })
+    },
+  )
+
+  t.test('cli.run with an invalid version', fn (t) {
     let buf = ByteArray.new
-    let writer = Writer { @buffer = buf } as Write
+    let writer = Writer(buf) as Write
 
-    with_directory(t.id) fn (path) {
-      Config.default.save(path.join(CONFIG_FILE)).unwrap
-      t.true(cli.run(['init'], path, writer).error?)
-    }
-  }
-
-  t.test('cli.run with an invalid version') fn (t) {
-    let buf = ByteArray.new
-    let writer = Writer { @buffer = buf } as Write
-
-    with_directory(t.id) fn (path) {
+    with_directory(t.id, fn (path) {
       t.true(cli.run(['a.b.c'], path, writer).error?)
-    }
-  }
+    })
+  })
 
-  t.test('cli.run with a valid untagged version') fn (t) {
+  t.test('cli.run with a valid untagged version', fn (t) {
     let buf = ByteArray.new
-    let writer = Writer { @buffer = buf } as Write
+    let writer = Writer(buf) as Write
 
-    with_repository(t.id) fn (repo, _) {
-      Config.default.save(repo.path.join(CONFIG_FILE)).unwrap
+    with_repository(t.id, fn (repo, _) {
+      Config.default.save(repo.path.join(CONFIG_FILE)).get
       t.true(cli.run(['1.0.0'], repo.path, writer).ok?)
 
       let changelog = read(repo.path.join('CHANGELOG.md'))
@@ -113,16 +116,16 @@ fn pub tests(t: mut Tests) {
       t.true(changelog.contains?('Bar'))
       t.false(changelog.contains?('Foo'))
       t.false(changelog.contains?('Baz'))
-    }
-  }
+    })
+  })
 
-  t.test('cli.run with an already tagged version') fn (t) {
+  t.test('cli.run with an already tagged version', fn (t) {
     let buf = ByteArray.new
-    let writer = Writer { @buffer = buf } as Write
+    let writer = Writer(buf) as Write
 
-    with_repository(t.id) fn (repo, _) {
-      Config.default.save(repo.path.join(CONFIG_FILE)).unwrap
-      repo.run('tag', ['1.0.0']).unwrap
+    with_repository(t.id, fn (repo, _) {
+      Config.default.save(repo.path.join(CONFIG_FILE)).get
+      repo.run('tag', ['1.0.0']).get
       t.true(cli.run(['1.0.0'], repo.path, writer).ok?)
 
       let changelog = read(repo.path.join('CHANGELOG.md'))
@@ -130,40 +133,40 @@ fn pub tests(t: mut Tests) {
       t.true(changelog.contains?('Bar'))
       t.false(changelog.contains?('Foo'))
       t.false(changelog.contains?('Baz'))
-    }
-  }
+    })
+  })
 
-  t.test('cli.run with an invalid configuration file') fn (t) {
+  t.test('cli.run with an invalid configuration file', fn (t) {
     let buf = ByteArray.new
-    let writer = Writer { @buffer = buf } as Write
+    let writer = Writer(buf) as Write
 
-    with_directory(t.id) fn (path) {
+    with_directory(t.id, fn (path) {
       t.true(
         cli
           .run(['--config', 'clogs-invalid.json', '1.0.0'], path, writer)
-          .error?
+          .error?,
       )
-    }
-  }
+    })
+  })
 
-  t.test('cli.run with an invalid Git repository') fn (t) {
+  t.test('cli.run with an invalid Git repository', fn (t) {
     let buf = ByteArray.new
-    let writer = Writer { @buffer = buf } as Write
+    let writer = Writer(buf) as Write
 
-    with_directory(t.id) fn (path) {
-      Config.default.save(path.join(CONFIG_FILE)).unwrap
+    with_directory(t.id, fn (path) {
+      Config.default.save(path.join(CONFIG_FILE)).get
       t.true(cli.run(['1.0.0'], path, writer).error?)
-    }
-  }
+    })
+  })
 
-  t.test('cli.run with an empty repository') fn (t) {
+  t.test('cli.run with an empty repository', fn (t) {
     let buf = ByteArray.new
-    let writer = Writer { @buffer = buf } as Write
+    let writer = Writer(buf) as Write
 
-    with_directory(t.id) fn (path) {
-      Config.default.save(path.join(CONFIG_FILE)).unwrap
-      Repository.new(path).run('init', []).unwrap
+    with_directory(t.id, fn (path) {
+      Config.default.save(path.join(CONFIG_FILE)).get
+      Repository.new(path).run('init', []).get
       t.true(cli.run(['1.0.0'], path, writer).error?)
-    }
-  }
+    })
+  })
 }

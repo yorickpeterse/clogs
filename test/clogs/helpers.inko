@@ -1,28 +1,29 @@
-import clogs.git.Repository
+import clogs.git (Repository)
 import std.env
-import std.fs.file.(ReadOnlyFile, WriteOnlyFile)
-import std.fs.path.Path
+import std.fs.file (ReadOnlyFile, WriteOnlyFile)
+import std.fs.path (Path)
 
 fn write(path: ref Path, content: String) {
-  WriteOnlyFile.new(path.clone).then fn (f) { f.write_string(content) }.unwrap
+  WriteOnlyFile.new(path.clone).then(fn (f) { f.write_string(content) }).get
 }
 
 fn read(path: ref Path) -> String {
   let buf = ByteArray.new
 
-  ReadOnlyFile.new(path.clone).then fn (f) { f.read_all(buf) }.unwrap
+  ReadOnlyFile.new(path.clone).then(fn (f) { f.read_all(buf) }).get
   buf.into_string
 }
 
 fn with_file_path(id: Int, func: fn (ref Path)) {
-  let path = env.temporary_directory.join("clogs-test-file-{id}")
+  let path = env.temporary_directory.join('clogs-test-file-${id}')
 
   func.call(path)
+
   if path.file? { path.remove_file }
 }
 
 fn with_directory(id: Int, func: fn (ref Path)) {
-  let path = env.temporary_directory.join("clogs-test-directory-{id}")
+  let path = env.temporary_directory.join('clogs-test-directory-${id}')
 
   path.create_directory_all
   func.call(path)
@@ -30,41 +31,39 @@ fn with_directory(id: Int, func: fn (ref Path)) {
 }
 
 fn with_repository(id: Int, func: fn (mut Repository, Array[String])) {
-  let dir = env.temporary_directory.join("clogs-test-{id}")
+  let dir = env.temporary_directory.join('clogs-test-${id}')
 
-  if dir.directory? { dir.remove_directory_all.unwrap }
+  if dir.directory? { dir.remove_directory_all.get }
 
-  dir.create_directory_all.unwrap
+  dir.create_directory_all.get
 
   let repo = Repository.new(dir)
 
-  repo.run('init', []).unwrap
+  repo.run('init', []).get
 
   write(dir.join('a.txt'), 'a')
-  repo.run('add', ['a.txt']).unwrap
-  repo
-    .run('commit', ['--author', 'a <a@example.com>', '--message', 'Foo'])
-    .unwrap
+  repo.run('add', ['a.txt']).get
+  repo.run('commit', ['--author', 'a <a@example.com>', '--message', 'Foo']).get
 
   write(dir.join('b.txt'), 'b')
-  repo.run('add', ['b.txt']).unwrap
+  repo.run('add', ['b.txt']).get
   repo
     .run(
       'commit',
-      ['--author', 'a <a@example.com>', '--message', "Bar\n\nChangelog: added"]
+      ['--author', 'a <a@example.com>', '--message', 'Bar\n\nChangelog: added'],
     )
-    .unwrap
+    .get
 
   write(dir.join('c.txt'), 'c')
-  repo.run('add', ['c.txt']).unwrap
+  repo.run('add', ['c.txt']).get
   repo
     .run(
       'commit',
-      ['--author', 'a <a@example.com>', '--message', "Baz\n\nChangelog: fixed"]
+      ['--author', 'a <a@example.com>', '--message', 'Baz\n\nChangelog: fixed'],
     )
-    .unwrap
+    .get
 
-  repo.run('revert', ['HEAD', '--no-edit']).unwrap
+  repo.run('revert', ['HEAD', '--no-edit']).get
 
   # This is a bogus revert commit that should be ignored.
   repo
@@ -75,12 +74,12 @@ fn with_repository(id: Int, func: fn (mut Repository, Array[String])) {
         'a <a@example.com>',
         '--message',
         'This reverts commit 123',
-        '--allow-empty'
-      ]
+        '--allow-empty',
+      ],
     )
-    .unwrap
+    .get
 
-  func.call(repo, repo.run('rev-list', ['HEAD']).unwrap.to_array)
+  func.call(repo, repo.run('rev-list', ['HEAD']).get.to_array)
 
   let _ = dir.remove_directory_all
 }

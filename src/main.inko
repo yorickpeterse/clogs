@@ -1,22 +1,22 @@
 import clogs.cli
-import std.env.(arguments, working_directory)
-import std.io.Write
-import std.stdio.(STDERR, STDOUT)
-import std.sys.(exit)
+import std.env (arguments, working_directory)
+import std.io (Write)
+import std.stdio (STDERR, STDOUT)
+import std.sys (exit)
 
 class async Main {
   fn async main {
     # This is needed to work around
     # https://github.com/inko-lang/inko/issues/631.
     let out = STDOUT.new as Write
-    let pwd = working_directory.unwrap_or_else fn { '.'.to_path }
+    let pwd = working_directory.or_else(fn { '.'.to_path })
 
     match cli.run(arguments, pwd, out) {
       case Ok(_) -> {}
       case Error(e) -> {
         # Until https://github.com/inko-lang/inko/issues/634 is implemented, we
         # just unconditionally use colors.
-        STDERR.new.print("\e[31;1merror\e[0m: {e}")
+        STDERR.new.print('\e[31;1merror\e[0m: ${e}')
         exit(1)
       }
     }

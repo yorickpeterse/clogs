@@ -1,8 +1,8 @@
-import std.fs.file.(ReadOnlyFile, WriteOnlyFile)
-import std.fs.path.Path
-import std.io.(Error as IoError)
-import std.json.Json
-import std.string.ToString
+import std.fs.file (ReadOnlyFile, WriteOnlyFile)
+import std.fs.path (Path)
+import std.io (Error as IoError)
+import std.json (Json)
+import std.string (ToString)
 
 # The URL to use when creating a default configuration file.
 let DEFAULT_URL = 'https://github.com/OWNER/PROJECT/commit/%s'
@@ -47,12 +47,14 @@ impl ToString for Error {
     match self {
       case InvalidFile(e) -> e.to_string
       case InvalidSyntax(e) -> e
-      case InvalidRoot -> "the root JSON value must be an object"
+      case InvalidRoot -> 'the root JSON value must be an object'
       case InvalidUrl -> 'the "url" key must have its value set to a string'
-      case InvalidChangelogPath -> 'the "changelog" key must have its value \
-        set to a non-empty string'
-      case InvalidCategories -> 'the "categories" setting must be an object, \
-        and its values must be strings'
+      case InvalidChangelogPath -> {
+        'the "changelog" key must have its value set to a non-empty string'
+      }
+      case InvalidCategories -> {
+        'the "categories" setting must be an object, and its values must be strings'
+      }
     }
   }
 }
@@ -63,14 +65,14 @@ class Config {
   let @categories: Map[String, String]
 
   fn static default -> Config {
-    Config {
-      @url = DEFAULT_URL,
-      @changelog = DEFAULT_CHANGELOG.to_path,
-      @categories = DEFAULT_CATEGORIES.iter.reduce(Map.new) fn (map, pair) {
+    Config(
+      url: DEFAULT_URL,
+      changelog: DEFAULT_CHANGELOG.to_path,
+      categories: DEFAULT_CATEGORIES.iter.reduce(Map.new, fn (map, pair) {
         map.set(pair.get(0), pair.get(1))
         map
-      },
-    }
+      }),
+    )
   }
 
   fn static load(path: ref Path) -> Result[Config, Error] {
@@ -78,8 +80,8 @@ class Config {
 
     try ReadOnlyFile
       .new(path.clone)
-      .then fn (file) { file.read_all(buf) }
-      .map_error fn (e) { Error.InvalidFile(e) }
+      .then(fn (file) { file.read_all(buf) })
+      .map_error(fn (e) { Error.InvalidFile(e) })
 
     let doc = match Json.parse(buf) {
       case Ok(Object(map)) -> map
@@ -98,26 +100,28 @@ class Config {
     }
 
     let cats = match doc.opt('categories') {
-      case Some(Object(map)) -> try map.iter.try_reduce(Map.new) fn (map, kv) {
-        match kv.value {
-          case String(v) -> map.set(kv.key, v)
-          case _ -> throw Error.InvalidCategories
-        }
+      case Some(Object(map)) -> {
+        try map.iter.try_reduce(Map.new, fn (map, kv) {
+          match kv.value {
+            case String(v) -> map.set(kv.key, v)
+            case _ -> throw Error.InvalidCategories
+          }
 
-        Result.Ok(map)
+          Result.Ok(map)
+        })
       }
       case _ -> throw Error.InvalidCategories
     }
 
-    Result.Ok(Config { @url = url, @changelog = changelog, @categories = cats })
+    Result.Ok(Config(url: url, changelog: changelog, categories: cats))
   }
 
   fn save(path: ref Path) -> Result[Nil, IoError] {
     let root = Map.new
-    let cats = @categories.iter.reduce(Map.new) fn (map, pair) {
+    let cats = @categories.iter.reduce(Map.new, fn (map, pair) {
       map.set(pair.key, Json.String(pair.value))
       map
-    }
+    })
 
     root.set('url', Json.String(@url))
     root.set('changelog', Json.String(@changelog.to_string))
@@ -125,9 +129,8 @@ class Config {
 
     let out = Json.Object(root).to_pretty_string
 
-    WriteOnlyFile
-      .new(path.clone)
-      .then fn (f) { f.write_string(out) }
-      .map fn (_) { nil }
+    WriteOnlyFile.new(path.clone).then(fn (f) { f.write_string(out) }).map(
+      fn (_) { nil },
+    )
   }
 }

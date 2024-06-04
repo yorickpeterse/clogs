@@ -1,61 +1,63 @@
-import clogs.git.(Commit, Error, Repository)
-import clogs.helpers.(with_repository)
-import clogs.version.Version
+import clogs.git (Commit, Error, Repository)
+import clogs.helpers (with_repository)
+import clogs.version (Version)
 import std.io
-import std.set.Set
-import std.test.Tests
+import std.set (Set)
+import std.test (Tests)
 
 fn pub tests(t: mut Tests) {
-  t.test('Error.to_string') fn (t) {
+  t.test('Error.to_string', fn (t) {
     t.equal(
       Error.Invalid(io.Error.NotFound).to_string,
-      "failed to run the 'git' command: {io.Error.NotFound}"
+      "failed to run the 'git' command: ${io.Error.NotFound}",
     )
 
     t.equal(Error.Exit('foo').to_string, 'foo')
-  }
+  })
 
-  t.test('Commit.parse with a valid commit line') fn (t) {
-    let commit = Commit.parse("123\tadded\tSubject")
+  t.test('Commit.parse with a valid commit line', fn (t) {
+    let commit = Commit.parse('123\tadded\tSubject')
 
     t.equal(
-      commit.map fn (c) {
+      commit.map(fn (c) {
         c.id == '123' and c.subject == 'Subject' and c.category == 'added'
-      },
-      Option.Some(true)
+      }),
+      Option.Some(true),
     )
-  }
+  })
 
-  t.test('Commit.parse with an invalid commit line') fn (t) {
+  t.test('Commit.parse with an invalid commit line', fn (t) {
     t.true(Commit.parse('').none?)
-    t.true(Commit.parse("123").none?)
-    t.true(Commit.parse("123\tadded").none?)
-    t.true(Commit.parse("123\tadded\t").none?)
-    t.true(Commit.parse("123\t\tFoo").none?)
-  }
+    t.true(Commit.parse('123').none?)
+    t.true(Commit.parse('123\tadded').none?)
+    t.true(Commit.parse('123\tadded\t').none?)
+    t.true(Commit.parse('123\t\tFoo').none?)
+  })
 
-  t.test('Repository.versions') fn (t) {
-    with_repository(t.id) fn (repo, _) {
+  t.test('Repository.versions', fn (t) {
+    with_repository(t.id, fn (repo, _) {
       repo.run('tag', ['v1.2.3'])
       repo.run('tag', ['foo'])
 
       t.equal(
-        repo.versions.ok.map fn (i) { i.to_array },
-        Option.Some([Version.new(1, 2, 3)])
+        repo.versions.ok.map(fn (i) { i.to_array }),
+        Option.Some([Version.new(1, 2, 3)]),
       )
-    }
-  }
+    })
+  })
 
-  t.test('Repository.first_commit') fn (t) {
-    with_repository(t.id) fn (repo, shas) {
+  t.test('Repository.first_commit', fn (t) {
+    with_repository(t.id, fn (repo, shas) {
       t.equal(repo.first_commit.ok, shas.last)
-    }
-  }
+    })
+  })
 
-  t.test('Repository.changelog_commits') fn (t) {
-    with_repository(t.id) fn (repo, shas) {
-      let commits =
-        repo.changelog_commits(shas.last.unwrap, shas.get(0)).unwrap.to_array
+  t.test('Repository.changelog_commits', fn (t) {
+    with_repository(t.id, fn (repo, shas) {
+      let commits = repo
+        .changelog_commits(shas.last.get, shas.get(0))
+        .get
+        .to_array
 
       t.equal(commits.size, 2)
 
@@ -69,38 +71,38 @@ fn pub tests(t: mut Tests) {
       t.equal(c2.id, shas.get(shas.size - 2))
       t.equal(c2.subject, 'Bar')
       t.equal(c2.category, 'added')
-    }
-  }
+    })
+  })
 
-  t.test('Repository.reverted_commits') fn (t) {
-    with_repository(t.id) fn (repo, shas) {
-      let reverted = repo.reverted_commits(shas.last.unwrap, shas.get(0)).ok
+  t.test('Repository.reverted_commits', fn (t) {
+    with_repository(t.id, fn (repo, shas) {
+      let reverted = repo.reverted_commits(shas.last.get, shas.get(0)).ok
       let exp = Set.new
 
       exp.insert(shas.get(2))
       t.equal(reverted, Option.Some(exp))
-    }
-  }
+    })
+  })
 
-  t.test('Repository.run with a valid command') fn (t) {
-    with_repository(t.id) fn (repo, _) {
+  t.test('Repository.run with a valid command', fn (t) {
+    with_repository(t.id, fn (repo, _) {
       let out = repo.run('status', [])
 
       t.equal(
-        out.map fn (i) { i.count > 0 }.map_error fn (e) { e.to_string },
-        Result.Ok(true)
+        out.map(fn (i) { i.count > 0 }).map_error(fn (e) { e.to_string }),
+        Result.Ok(true),
       )
-    }
-  }
+    })
+  })
 
-  t.test('Repository.run with an invalid command') fn (t) {
+  t.test('Repository.run with an invalid command', fn (t) {
     let repo = Repository.new('.'.to_path)
 
     t.true(
       match repo.run('kittens', []) {
         case Error(Exit(_)) -> true
         case _ -> false
-      }
+      },
     )
-  }
+  })
 }

@@ -1,21 +1,16 @@
-import clogs.config.(
-  Config,
-  DEFAULT_CATEGORIES,
-  DEFAULT_CHANGELOG,
-  DEFAULT_URL,
-  Error,
+import clogs.config (
+  Config, DEFAULT_CATEGORIES, DEFAULT_CHANGELOG, DEFAULT_URL, Error,
 )
-
-import clogs.helpers.(with_file_path, write)
+import clogs.helpers (with_file_path, write)
 import std.env
 import std.io
-import std.test.Tests
+import std.test (Tests)
 
 fn pub tests(t: mut Tests) {
-  t.test('Error.to_string') fn (t) {
+  t.test('Error.to_string', fn (t) {
     t.equal(
       Error.InvalidFile(io.Error.NotFound).to_string,
-      io.Error.NotFound.to_string
+      io.Error.NotFound.to_string,
     )
 
     t.equal(Error.InvalidSyntax('a').to_string, 'a')
@@ -23,119 +18,119 @@ fn pub tests(t: mut Tests) {
     t.true(Error.InvalidUrl.to_string.size > 0)
     t.true(Error.InvalidChangelogPath.to_string.size > 0)
     t.true(Error.InvalidCategories.to_string.size > 0)
-  }
+  })
 
-  t.test('Config.default') fn (t) {
+  t.test('Config.default', fn (t) {
     let conf = Config.default
 
     t.equal(conf.url, DEFAULT_URL)
     t.equal(conf.changelog, DEFAULT_CHANGELOG.to_path)
 
-    DEFAULT_CATEGORIES.iter.each fn (pair) {
+    DEFAULT_CATEGORIES.iter.each(fn (pair) {
       t.equal(conf.categories.opt(pair.get(0)), Option.Some(pair.get(1)))
-    }
-  }
+    })
+  })
 
-  t.test('Config.load with a valid configuration file') fn (t) {
-    with_file_path(t.id) fn (path) {
+  t.test('Config.load with a valid configuration file', fn (t) {
+    with_file_path(t.id, fn (path) {
       write(
         path,
         '{"url": "a", "changelog": "a.md", "categories": { "added": "Added" }}',
       )
 
-      let conf = Config.load(path).unwrap
+      let conf = Config.load(path).get
 
       t.equal(conf.url, 'a')
       t.equal(conf.changelog, 'a.md'.to_path)
       t.equal(conf.categories.size, 1)
       t.equal(conf.categories.opt('added'), Option.Some('Added'))
 
-      path.remove_file.unwrap
-    }
-  }
+      path.remove_file.get
+    })
+  })
 
-  t.test('Config.load with a non-existing file') fn (t) {
+  t.test('Config.load with a non-existing file', fn (t) {
     t.true(Config.load('kittens.json'.to_path).error?)
-  }
+  })
 
-  t.test('Config.load with invalid JSON syntax') fn (t) {
-    with_file_path(t.id) fn (path) {
+  t.test('Config.load with invalid JSON syntax', fn (t) {
+    with_file_path(t.id, fn (path) {
       write(path, '{"url": "a", ')
       t.true(Config.load(path).error?)
-    }
-  }
+    })
+  })
 
-  t.test('Config.load with an invalid root value') fn (t) {
-    with_file_path(t.id) fn (path) {
+  t.test('Config.load with an invalid root value', fn (t) {
+    with_file_path(t.id, fn (path) {
       write(path, '42')
       t.true(Config.load(path).error?)
-    }
-  }
+    })
+  })
 
-  t.test('Config.load with an invalid URL value') fn (t) {
-    with_file_path(t.id) fn (path) {
+  t.test('Config.load with an invalid URL value', fn (t) {
+    with_file_path(t.id, fn (path) {
       write(
         path,
         '{"url": 42, "changelog": "a.md", "categories": { "added": "Added" }}',
       )
 
       t.true(Config.load(path).error?)
-    }
+    })
 
-    with_file_path(t.id) fn (path) {
+    with_file_path(t.id, fn (path) {
       write(
         path,
         '{"url": "", "changelog": "a.md", "categories": { "added": "Added" }}',
       )
 
       t.true(Config.load(path).error?)
-    }
-  }
+    })
+  })
 
-  t.test('Config.load with an invalid changelog path value') fn (t) {
-    with_file_path(t.id) fn (path) {
+  t.test('Config.load with an invalid changelog path value', fn (t) {
+    with_file_path(t.id, fn (path) {
       write(
         path,
         '{"url": "a", "changelog": 42, "categories": { "added": "Added" }}',
       )
 
       t.true(Config.load(path).error?)
-    }
+    })
 
-    with_file_path(t.id) fn (path) {
+    with_file_path(t.id, fn (path) {
       write(
         path,
         '{"url": "a", "changelog": "", "categories": { "added": "Added" }}',
       )
 
       t.true(Config.load(path).error?)
-    }
-  }
+    })
+  })
 
-  t.test('Config.load with an invalid categories setting') fn (t) {
-    with_file_path(t.id) fn (path) {
+  t.test('Config.load with an invalid categories setting', fn (t) {
+    with_file_path(t.id, fn (path) {
       write(path, '{"url": "a", "changelog": "a.md", "categories": 42}')
       t.true(Config.load(path).error?)
-    }
-  }
+    })
+  })
 
-  t.test('Config.save with a valid path') fn (t) {
-    with_file_path(t.id) fn (path) {
+  t.test('Config.save with a valid path', fn (t) {
+    with_file_path(t.id, fn (path) {
       let conf = Config.default
 
       t.true(conf.save(path).ok?)
 
-      let loaded = Config.load(path).unwrap
+      let loaded = Config.load(path).get
 
       t.equal(conf.url, loaded.url)
       t.equal(conf.changelog, loaded.changelog)
       t.equal(conf.categories, loaded.categories)
-    }
-  }
+    })
+  })
 
-  t.test('Config.save with an invalid path') fn (t) {
-    with_file_path(t.id) fn (path) {
+  t.test('Config.save with an invalid path', fn (t) {
+    with_file_path(t.id, fn (path) {
       t.true(Config.default.save(path.join('parent-is-missing')).error?)
-    }
-  }
+    })
+  })
 }

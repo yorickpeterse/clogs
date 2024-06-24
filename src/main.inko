@@ -9,7 +9,7 @@ class async Main {
     # This is needed to work around
     # https://github.com/inko-lang/inko/issues/631.
     let out = STDOUT.new as Write
-    let pwd = working_directory.or_else(fn { '.'.to_path })
+    let pwd = working_directory.or_else(fn (_) { '.'.to_path })
 
     match cli.run(arguments, pwd, out) {
       case Ok(_) -> {}

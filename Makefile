@@ -1,9 +1,21 @@
+PREFIX := /usr
+BINDIR := ${PREFIX}/bin
+DATADIR := ${PREFIX}/share
+
 .check-version:
 	@test $${VERSION?The VERSION variable must be set}
 
 build:
 	inko pkg sync
 	inko build -o ./build/clogs
+
+${DESTDIR}${BINDIR}/clogs:
+	install -D --mode=755 build/clogs "${@}"
+
+install: build ${DESTDIR}${BINDIR}/clogs
+
+uninstall:
+	rm --force ${BINDIR}/clogs
 
 release/version: .check-version
 	sed -E -i -e "s/^let VERSION = '([^']+)'$$/let VERSION = '${VERSION}'/" \

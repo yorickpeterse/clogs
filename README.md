@@ -122,8 +122,10 @@ Generating changelogs comes with the following workflow requirements:
 To build from source:
 
 ```
-inko build -o build/clogs
+make install PREFIX=~/.local
 ```
+
+This installs the executable into `~/.local/bin/clogs`.
 
 If you're using Arch Linux, [an AUR
 package](https://aur.archlinux.org/packages/git-clogs) is also available:

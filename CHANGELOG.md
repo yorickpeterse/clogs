@@ -1,6 +1,10 @@
 <!-- This changelog is managed by https://github.com/yorickpeterse/clogs -->
 # Changelog
 
+## 0.4.0 (2024-06-29)
+
+No changes.
+
 ## 0.3.0 (2024-02-06)
 
 ### Other

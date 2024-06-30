@@ -9,10 +9,8 @@ build:
 	inko pkg sync
 	inko build -o ./build/clogs
 
-${DESTDIR}${BINDIR}/clogs:
-	install -D --mode=755 build/clogs "${@}"
-
-install: build ${DESTDIR}${BINDIR}/clogs
+install: build
+	install -D --mode=755 build/clogs ${DESTDIR}${BINDIR}/clogs
 
 uninstall:
 	rm --force ${BINDIR}/clogs
@@ -35,5 +33,5 @@ release/tag: .check-version
 
 release: release/version release/changelog release/commit release/tag
 
-.PHONY: build
+.PHONY: build install uninstall
 .PHONY: release/version release/changelog release/commit release/tag release

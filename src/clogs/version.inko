@@ -13,7 +13,7 @@ class Version {
   let @patch: Int
 
   fn static from_tag(name: String) -> Option[Version] {
-    parse(name.strip_prefix('v'))
+    parse(name.strip_prefix('v').or(name))
   }
 
   fn static parse(input: String) -> Option[Version] {

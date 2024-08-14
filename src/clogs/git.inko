@@ -63,13 +63,9 @@ class Output {
 
 impl Iter[String] for Output {
   fn pub mut next -> Option[String] {
-    match @stdout.read_line(@buffer) {
+    match @stdout.read_line(@buffer, inclusive: false) {
       case Ok(0) -> Option.None
-      case Ok(_) -> {
-        if @buffer.last.or(0) == LF { @buffer.pop }
-
-        Option.Some(@buffer.drain_to_string)
-      }
+      case Ok(_) -> Option.Some(@buffer.drain_to_string)
       # Pipe errors should be rare, and possibly never occur in the first place.
       # Even if they do occur, there's nothing really useful you can do with the
       # error, short of restarting the program and trying again.

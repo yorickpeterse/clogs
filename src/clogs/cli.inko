@@ -11,7 +11,7 @@ import std.string (StringBuffer)
 import std.sys (exit)
 import std.time (DateTime)
 
-let VERSION = '0.4.0'
+let VERSION = '0.5.0'
 
 fn show_help(options: ref Options, output: mut Write) {
   let help = Help

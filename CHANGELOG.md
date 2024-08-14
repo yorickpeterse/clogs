@@ -1,6 +1,12 @@
 <!-- This changelog is managed by https://github.com/yorickpeterse/clogs -->
 # Changelog
 
+## 0.5.0 (2024-08-14)
+
+### Changed
+
+- [3dab6ce](https://github.com/yorickpeterse/clogs/commit/3dab6cead783b872a97ee001503e6a9de5b13b6f): Require Inko 0.16.0 or newer
+
 ## 0.4.0 (2024-06-29)
 
 No changes.

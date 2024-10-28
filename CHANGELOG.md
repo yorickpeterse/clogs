@@ -7,6 +7,13 @@
 
 - [3dab6ce](https://github.com/yorickpeterse/clogs/commit/3dab6cead783b872a97ee001503e6a9de5b13b6f): Require Inko 0.16.0 or newer
 
+## 0.5.0 (2024-10-28)
+
+### Changed
+
+- [7f9a007](https://github.com/yorickpeterse/clogs/commit/7f9a00714549a9e599ca4bd4f8f911eb74aabcaa): Require Inko 0.17.0 or newer
+- [3dab6ce](https://github.com/yorickpeterse/clogs/commit/3dab6cead783b872a97ee001503e6a9de5b13b6f): Require Inko 0.16.0 or newer
+
 ## 0.4.0 (2024-06-29)
 
 No changes.

@@ -1,14 +1,10 @@
 import clogs.changelog (Changelog, Release)
 import clogs.config (CONFIG_FILE, Config)
-import clogs.git (Commit, Repository)
+import clogs.git (Repository)
 import clogs.version (Version)
-import std.fs.file (ReadOnlyFile, WriteOnlyFile)
 import std.fs.path (Path)
 import std.io (Write)
-import std.optparse (Help, Matches, Options)
-import std.set (Set)
-import std.string (StringBuffer)
-import std.sys (exit)
+import std.optparse (Help, Options)
 import std.time (DateTime)
 
 let VERSION = '0.5.0'

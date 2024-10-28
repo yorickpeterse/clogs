@@ -53,8 +53,10 @@ class Output {
   let @buffer: ByteArray
 
   fn static new(child: sys.ChildProcess) -> Output {
+    let out = child.stdout := Option.None
+
     Output(
-      stdout: BufferedReader.new(child.stdout),
+      stdout: BufferedReader.new(out.get),
       child: child,
       buffer: ByteArray.new,
     )
@@ -153,13 +155,13 @@ class Repository {
   fn run(command: String, arguments: Array[String]) -> Result[Output, Error] {
     let cmd = sys.Command.new('git')
 
-    cmd.argument('-C')
-    cmd.argument(@path.to_string)
-    cmd.argument(command)
-    cmd.arguments(arguments)
-    cmd.stdin(sys.Stream.Null)
-    cmd.stderr(sys.Stream.Piped)
-    cmd.stdout(sys.Stream.Piped)
+    cmd.arguments.push('-C')
+    cmd.arguments.push(@path.to_string)
+    cmd.arguments.push(command)
+    cmd.arguments.append(arguments)
+    cmd.stdin = sys.Stream.Null
+    cmd.stderr = sys.Stream.Piped
+    cmd.stdout = sys.Stream.Piped
 
     let child = try cmd.spawn.map_error(fn (e) { Error.Invalid(e) })
     let status = try child.wait.map_error(fn (e) { Error.Invalid(e) })
@@ -168,7 +170,8 @@ class Repository {
       Result.Ok(Output.new(child))
     } else {
       let out = ByteArray.new
-      let message = match child.stderr.read_all(out) {
+      let err = (child.stderr := Option.None).get
+      let message = match err.read_all(out) {
         case Ok(_) -> {
           # Trailing newlines may mess up error message formatting, so we get
           # rid of them.

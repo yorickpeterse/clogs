@@ -2,7 +2,6 @@ import clogs.config (
   Config, DEFAULT_CATEGORIES, DEFAULT_CHANGELOG, DEFAULT_URL, Error,
 )
 import clogs.helpers (with_file_path, write)
-import std.env
 import std.io
 import std.test (Tests)
 

@@ -2,7 +2,6 @@ import clogs.cli
 import clogs.config (CONFIG_FILE, Config)
 import clogs.git (Repository)
 import clogs.helpers (read, with_directory, with_repository)
-import clogs.version (Version)
 import std.io (Write)
 import std.optparse (Options)
 import std.test (Tests)

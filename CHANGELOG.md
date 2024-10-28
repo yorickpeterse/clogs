@@ -1,6 +1,12 @@
 <!-- This changelog is managed by https://github.com/yorickpeterse/clogs -->
 # Changelog
 
+## 0.7.0 (2024-10-28)
+
+### Changed
+
+- [Change the format for changelog entries](https://github.com/yorickpeterse/clogs/commit/98d4180ef8480f4728b97386850ad5fe495a8500)
+
 ## 0.6.0 (2024-10-28)
 
 ### Changed

@@ -66,9 +66,8 @@ impl ToString for Release {
 
       commits.iter.each(fn (c) {
         let url = @config.url.replace('%s', c.id)
-        let short = c.id.slice(start: 0, size: 7)
 
-        markdown.push('\n- [${short}](${url}): ${c.subject}')
+        markdown.push('\n- [${c.subject}](${url})')
       })
     })
 

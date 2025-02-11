@@ -7,7 +7,7 @@ import std.string (ToString)
 
 # A type that represents a version number, per semantic versioning
 # (https://semver.org/).
-class Version {
+type copy Version {
   let @major: Int
   let @minor: Int
   let @patch: Int
@@ -58,13 +58,13 @@ impl ToString for Version {
   }
 }
 
-impl Equal[ref Version] for Version {
+impl Equal for Version {
   fn pub ==(other: ref Version) -> Bool {
     @major == other.major and @minor == other.minor and @patch == other.patch
   }
 }
 
-impl Compare[Version] for Version {
+impl Compare for Version {
   fn pub cmp(other: ref Version) -> Ordering {
     match @major.cmp(other.major) {
       case Equal -> {
@@ -84,7 +84,7 @@ impl FormatTrait for Version {
   }
 }
 
-impl Clone[Version] for Version {
+impl Clone for Version {
   fn pub clone -> Version {
     Version(major: @major, minor: @minor, patch: @patch)
   }

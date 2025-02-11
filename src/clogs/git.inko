@@ -26,7 +26,7 @@ let REVERT_TEXT = 'This reverts commit '
 let SHA_SIZE = 40
 
 # An error produced when running Git commands.
-class enum Error {
+type inline enum Error {
   # The Git command failed to run, such as due to it not existing, or a lack of
   # permissions.
   case Invalid(IoError)
@@ -47,7 +47,7 @@ impl ToString for Error {
 # An iterator over the lines of a process' STDOUT stream.
 #
 # The produced lines _don't_ include the trailing newline.
-class Output {
+type inline Output {
   let @child: sys.ChildProcess
   let @stdout: BufferedReader[sys.Stdout]
   let @buffer: ByteArray
@@ -76,7 +76,7 @@ impl Iter[String] for Output {
   }
 }
 
-class Commit {
+type Commit {
   let @id: String
   let @subject: String
   let @category: String
@@ -91,7 +91,7 @@ class Commit {
   }
 }
 
-class Repository {
+type inline Repository {
   let @path: Path
 
   fn static new(path: ref Path) -> Repository {

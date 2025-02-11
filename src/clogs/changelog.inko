@@ -15,7 +15,7 @@ fn format_date(date: ref DateTime) -> String {
   '${date.year}-${date.month.to_string.pad_start('0', chars: 2)}-${date.day.to_string.pad_start('0', chars: 2)}'
 }
 
-class Release {
+type Release {
   let @config: ref Config
   let @version: Version
   let @previous_version: Option[Version]
@@ -75,9 +75,9 @@ impl ToString for Release {
   }
 }
 
-class Changelog {
+type Changelog {
   let @path: Path
-  let @data: String
+  let mut @data: String
 
   fn static load(path: ref Path) -> Result[Changelog, Error] {
     let data = if path.file? {

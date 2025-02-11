@@ -2,26 +2,26 @@ import clogs.cli
 import clogs.config (CONFIG_FILE, Config)
 import clogs.git (Repository)
 import clogs.helpers (read, with_directory, with_repository)
-import std.io (Write)
+import std.io (Error, Write)
 import std.optparse (Options)
 import std.test (Tests)
 
-class Writer {
+type Writer {
   let @buffer: mut ByteArray
 }
 
 impl Write for Writer {
-  fn pub mut write_string(string: String) -> Result[Nil, Never] {
+  fn pub mut write_string(string: String) -> Result[Nil, Error] {
     @buffer.append(string.to_byte_array)
     Result.Ok(nil)
   }
 
-  fn pub mut write_bytes(bytes: ref ByteArray) -> Result[Nil, Never] {
+  fn pub mut write_bytes(bytes: ref ByteArray) -> Result[Nil, Error] {
     @buffer.copy_from(bytes, at: 0, size: bytes.size)
     Result.Ok(nil)
   }
 
-  fn pub mut flush -> Result[Nil, Never] {
+  fn pub mut flush -> Result[Nil, Error] {
     Result.Ok(nil)
   }
 }

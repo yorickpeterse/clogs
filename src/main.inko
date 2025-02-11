@@ -1,14 +1,13 @@
 import clogs.cli
 import std.env (arguments, working_directory)
-import std.io (Write)
 import std.stdio (Stderr, Stdout)
 import std.sys (exit)
 
-class async Main {
+type async Main {
   fn async main {
     # This is needed to work around
     # https://github.com/inko-lang/inko/issues/631.
-    let out = Stdout.new as Write
+    let out = Stdout.new
     let pwd = working_directory.or_else(fn (_) { '.'.to_path })
 
     match cli.run(arguments, pwd, out) {

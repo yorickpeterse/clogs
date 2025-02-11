@@ -22,7 +22,7 @@ let DEFAULT_CATEGORIES = [
   ['other', 'Other'],
 ]
 
-class enum Error {
+type inline enum Error {
   # The configuration file couldn't be loaded (e.g. it doesn't exist).
   case InvalidFile(IoError)
 
@@ -59,8 +59,8 @@ impl ToString for Error {
   }
 }
 
-class Config {
-  let @url: String
+type Config {
+  let mut @url: String
   let @changelog: Path
   let @categories: Map[String, String]
 
@@ -76,14 +76,11 @@ class Config {
   }
 
   fn static load(path: ref Path) -> Result[Config, Error] {
-    let buf = ByteArray.new
+    let file = try ReadOnlyFile.new(path.clone).map_error(fn (e) {
+      Error.InvalidFile(e)
+    })
 
-    try ReadOnlyFile
-      .new(path.clone)
-      .then(fn (file) { file.read_all(buf) })
-      .map_error(fn (e) { Error.InvalidFile(e) })
-
-    let doc = match Json.parse(buf) {
+    let doc = match Json.parse(file) {
       case Ok(Object(map)) -> map
       case Ok(_) -> throw Error.InvalidRoot
       case Error(e) -> throw Error.InvalidSyntax(e.to_string)

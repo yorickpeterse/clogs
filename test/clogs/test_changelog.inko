@@ -4,7 +4,7 @@ import clogs.git (Commit)
 import clogs.helpers (with_file_path, write)
 import clogs.version (Version)
 import std.test (Tests)
-import std.time (DateTime)
+import std.time (Date, DateTime, Time)
 
 fn config -> Config {
   let conf = Config.default
@@ -18,14 +18,9 @@ fn release(config: ref Config) -> Release {
     config,
     version: Version.new(1, 0, 1),
     previous_version: Option.Some(Version.new(1, 0, 0)),
-    date: DateTime(
-      year: 2023,
-      month: 8,
-      day: 5,
-      hour: 12,
-      minute: 15,
-      second: 30,
-      sub_second: 0.0,
+    date: DateTime.new(
+      date: Date.new(year: 2023, month: 8, day: 5).get,
+      time: Time.new(hour: 12, minute: 15, second: 30, nanosecond: 0).get,
       utc_offset: 0,
     ),
   )

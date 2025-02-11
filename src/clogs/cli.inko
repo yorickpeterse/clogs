@@ -9,7 +9,7 @@ import std.time (DateTime)
 
 let VERSION = '0.7.0'
 
-fn show_help(options: ref Options, output: mut Write) {
+fn show_help[T: mut + Write](options: ref Options, output: mut T) {
   let help = Help
     .new('clogs')
     .usage('[OPTIONS] [VERSION | COMMAND]')
@@ -26,10 +26,10 @@ fn show_help(options: ref Options, output: mut Write) {
   output.write_string(help).get
 }
 
-fn pub run(
+fn pub run[T: mut + Write](
   arguments: Array[String],
   working_directory: ref Path,
-  output: mut Write,
+  output: T,
 ) -> Result[Nil, String] {
   let opts = Options.new
 

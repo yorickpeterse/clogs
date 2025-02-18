@@ -13,9 +13,11 @@ type async Main {
     match cli.run(arguments, pwd, out) {
       case Ok(_) -> {}
       case Error(e) -> {
-        # Until https://github.com/inko-lang/inko/issues/634 is implemented, we
-        # just unconditionally use colors.
-        let _ = Stderr.new.print('\e[31;1merror\e[0m: ${e}')
+        let err = Stderr.new
+        let colors = err.terminal?
+        let _ = err.print(
+          if colors { '\e[31;1merror\e[0m: ${e}' } else { 'error: ${e}' },
+        )
 
         exit(1)
       }

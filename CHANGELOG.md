@@ -1,6 +1,13 @@
 <!-- This changelog is managed by https://github.com/yorickpeterse/clogs -->
 # Changelog
 
+## 0.9.0 (2025-02-18)
+
+### Changed
+
+- [Only enable colors in interactive sessions](https://github.com/yorickpeterse/clogs/commit/ace73c54924252e980b3ab6ddd7f30dcd0f8e42a)
+- [Explicitly ignore various unused results](https://github.com/yorickpeterse/clogs/commit/a33f9d3af48fd6907297cdf3e4da879d396b9ac6)
+
 ## 0.8.0 (2025-02-11)
 
 ### Changed

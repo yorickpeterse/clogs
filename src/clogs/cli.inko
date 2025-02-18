@@ -7,7 +7,7 @@ import std.io (Write)
 import std.optparse (Help, Options)
 import std.time (DateTime)
 
-let VERSION = '0.8.0'
+let VERSION = '0.9.0'
 
 fn show_help[T: mut + Write](options: ref Options, output: mut T) {
   let help = Help

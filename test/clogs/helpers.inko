@@ -9,8 +9,8 @@ fn write(path: ref Path, content: String) {
 
 fn read(path: ref Path) -> String {
   let buf = ByteArray.new
+  let _ = ReadOnlyFile.new(path.clone).then(fn (f) { f.read_all(buf) }).get
 
-  ReadOnlyFile.new(path.clone).then(fn (f) { f.read_all(buf) }).get
   buf.into_string
 }
 
@@ -24,8 +24,8 @@ fn with_file_path(id: Int, func: fn (ref Path)) {
 
 fn with_directory(id: Int, func: fn (ref Path)) {
   let path = env.temporary_directory.join('clogs-test-directory-${id}')
+  let _ = path.create_directory_all
 
-  path.create_directory_all
   func.call(path)
   path.remove_directory_all
 }
@@ -38,16 +38,19 @@ fn with_repository(id: Int, func: fn (mut Repository, Array[String])) {
   dir.create_directory_all.get
 
   let repo = Repository.new(dir)
-
-  repo.run('init', []).get
+  let _ = repo.run('init', []).get
 
   write(dir.join('a.txt'), 'a')
-  repo.run('add', ['a.txt']).get
-  repo.run('commit', ['--author', 'a <a@example.com>', '--message', 'Foo']).get
+
+  let _ = repo.run('add', ['a.txt']).get
+  let _ = repo
+    .run('commit', ['--author', 'a <a@example.com>', '--message', 'Foo'])
+    .get
 
   write(dir.join('b.txt'), 'b')
-  repo.run('add', ['b.txt']).get
-  repo
+
+  let _ = repo.run('add', ['b.txt']).get
+  let _ = repo
     .run(
       'commit',
       ['--author', 'a <a@example.com>', '--message', 'Bar\n\nChangelog: added'],
@@ -55,18 +58,19 @@ fn with_repository(id: Int, func: fn (mut Repository, Array[String])) {
     .get
 
   write(dir.join('c.txt'), 'c')
-  repo.run('add', ['c.txt']).get
-  repo
+
+  let _ = repo.run('add', ['c.txt']).get
+  let _ = repo
     .run(
       'commit',
       ['--author', 'a <a@example.com>', '--message', 'Baz\n\nChangelog: fixed'],
     )
     .get
 
-  repo.run('revert', ['HEAD', '--no-edit']).get
+  let _ = repo.run('revert', ['HEAD', '--no-edit']).get
 
   # This is a bogus revert commit that should be ignored.
-  repo
+  let _ = repo
     .run(
       'commit',
       [

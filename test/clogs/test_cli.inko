@@ -17,7 +17,8 @@ impl Write for Writer {
   }
 
   fn pub mut write_bytes(bytes: ref ByteArray) -> Result[Nil, Error] {
-    @buffer.copy_from(bytes, at: 0, size: bytes.size)
+    let _ = @buffer.copy_from(bytes, at: 0, size: bytes.size)
+
     Result.Ok(nil)
   }
 
@@ -124,7 +125,9 @@ fn pub tests(t: mut Tests) {
 
     with_repository(t.id, fn (repo, _) {
       Config.default.save(repo.path.join(CONFIG_FILE)).get
-      repo.run('tag', ['1.0.0']).get
+
+      let _ = repo.run('tag', ['1.0.0']).get
+
       t.true(cli.run(['1.0.0'], repo.path, writer).ok?)
 
       let changelog = read(repo.path.join('CHANGELOG.md'))
@@ -164,7 +167,9 @@ fn pub tests(t: mut Tests) {
 
     with_directory(t.id, fn (path) {
       Config.default.save(path.join(CONFIG_FILE)).get
-      Repository.new(path).run('init', []).get
+
+      let _ = Repository.new(path).run('init', []).get
+
       t.true(cli.run(['1.0.0'], path, writer).error?)
     })
   })

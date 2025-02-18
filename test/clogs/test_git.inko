@@ -36,8 +36,8 @@ fn pub tests(t: mut Tests) {
 
   t.test('Repository.versions', fn (t) {
     with_repository(t.id, fn (repo, _) {
-      repo.run('tag', ['v1.2.3'])
-      repo.run('tag', ['foo'])
+      let _ = repo.run('tag', ['v1.2.3'])
+      let _ = repo.run('tag', ['foo'])
 
       t.equal(
         repo.versions.ok.map(fn (i) { i.to_array }),

@@ -62,8 +62,9 @@ fn pub run[T: mut + Write](
       Result.Error("the configuration file '${config_path}' already exists")
     }
     case Some('init') -> {
-      Config.default.save(config_path)
-      Result.Ok(nil)
+      Config.default.save(config_path).map_error(fn (e) {
+        'failed to generate the configuration file: ${e}'
+      })
     }
     case Some(val) -> {
       match Version.parse(val) {

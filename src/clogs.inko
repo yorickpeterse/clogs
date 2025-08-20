@@ -2,36 +2,26 @@ import clogs.changelog (Changelog, Release)
 import clogs.config (CONFIG_FILE, Config)
 import clogs.git (Repository)
 import clogs.version (Version)
+import std.env (arguments, working_directory)
 import std.fs.path (Path)
-import std.io (Write)
-import std.optparse (Help, Options)
+import std.optparse (Options)
+import std.stdio (Stderr, Stdout)
+import std.sys (exit)
 import std.time (DateTime)
 
 let VERSION = '0.9.0'
 
-fn show_help[T: mut + Write](options: ref Options, output: mut T) {
-  let help = Help
-    .new('clogs')
-    .usage('[OPTIONS] [VERSION | COMMAND]')
-    .section('Examples')
-    .line(
-      'clogs 1.2.3                      Generate a changelog for version 1.2.3',
-    )
-    .line('clogs 1.2.3 --config foo.json    Use a custom configuration file')
-    .line('clogs init                       Generate a new configuration file')
-    .section('Options')
-    .options(options)
-    .to_string
-
-  output.write_string(help).get
-}
-
-fn pub run[T: mut + Write](
+fn pub run(
   arguments: Array[String],
   working_directory: ref Path,
-  output: T,
 ) -> Result[Nil, String] {
-  let opts = Options.new
+  let output = Stdout.new
+  let opts = Options.new('clogs')
+
+  opts.usage = '[OPTIONS] [VERSION | COMMAND]'
+  opts.description = 'Examples
+  clogs 1.2.3                      # Generate a changelog for version 1.2.3
+  clogs --config foo.json 1.2.3    # Use a custom configuration file'
 
   opts.flag('h', 'help', 'Show this help message')
   opts.flag('v', 'version', 'Show the version')
@@ -44,7 +34,8 @@ fn pub run[T: mut + Write](
   }
 
   if matches.contains?('help') {
-    show_help(opts, output)
+    let _ = output.write(opts.to_string)
+
     return Result.Ok(nil)
   }
 
@@ -57,16 +48,16 @@ fn pub run[T: mut + Write](
     fn { working_directory.join(CONFIG_FILE) },
   )
 
-  match matches.remaining.opt(0) {
-    case Some('init') if config_path.file? -> {
+  match matches.remaining.get(0) {
+    case Ok('init') if config_path.file? -> {
       Result.Error("the configuration file '${config_path}' already exists")
     }
-    case Some('init') -> {
+    case Ok('init') -> {
       Config.default.save(config_path).map_error(fn (e) {
         'failed to generate the configuration file: ${e}'
       })
     }
-    case Some(val) -> {
+    case Ok(val) -> {
       match Version.parse(val) {
         case Some(version) -> {
           update(config_path, version, matches.value('end').or('HEAD'))
@@ -75,7 +66,8 @@ fn pub run[T: mut + Write](
       }
     }
     case _ -> {
-      show_help(opts, output)
+      let _ = output.write(opts.to_string)
+
       Result.Ok(nil)
     }
   }
@@ -105,7 +97,7 @@ fn update(
   # At this point it's guaranteed our version is in the Array, so it's safe to
   # get the index.
   let index = versions.index_of(version).get
-  let prev_version = versions.opt(index - 1).map(fn (v) { v.clone })
+  let prev_version = versions.get(index - 1).map(fn (v) { v.clone }).ok
   let start = match ref prev_version {
     case Some(ver) -> ver.tag_name
     case _ -> {
@@ -126,15 +118,34 @@ fn update(
 
   let release = Release.new(config, version, prev_version, date: DateTime.utc)
 
-  commits.select(fn (c) { reverts.contains?(c.id).false? }).each(fn (c) {
+  for c in commits.select(fn (c) { reverts.contains?(c.id).false? }) {
     release.add(c)
-  })
+  }
 
   let out_path = config_dir.join(config.changelog)
-  let changelog = try Changelog.load(out_path.clone).map_error(fn (e) {
+  let changelog = try Changelog.load(out_path).map_error(fn (e) {
     'failed to read ${out_path}: ${e}'
   })
 
   changelog.add(release)
   changelog.save.map_error(fn (e) { 'failed to update ${out_path}: ${e}' })
+}
+
+type async Main {
+  fn async main {
+    let pwd = working_directory.or_else(fn (_) { '.'.to_path })
+
+    match run(arguments, pwd) {
+      case Ok(_) -> {}
+      case Error(e) -> {
+        let err = Stderr.new
+        let colors = err.terminal?
+        let _ = err.print(
+          if colors { '\e[31;1merror\e[0m: ${e}' } else { 'error: ${e}' },
+        )
+
+        exit(1)
+      }
+    }
+  }
 }

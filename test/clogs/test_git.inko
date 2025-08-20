@@ -55,20 +55,20 @@ fn pub tests(t: mut Tests) {
   t.test('Repository.changelog_commits', fn (t) {
     with_repository(t.id, fn (repo, shas) {
       let commits = repo
-        .changelog_commits(shas.last.get, shas.get(0))
+        .changelog_commits(shas.last.get, shas.get(0).or_panic)
         .get
         .to_array
 
       t.equal(commits.size, 2)
 
-      let c1 = commits.get(0)
-      let c2 = commits.get(1)
+      let c1 = commits.get(0).or_panic
+      let c2 = commits.get(1).or_panic
 
-      t.equal(c1.id, shas.get(shas.size - 3))
+      t.equal(c1.id, shas.get(shas.size - 3).or_panic)
       t.equal(c1.subject, 'Baz')
       t.equal(c1.category, 'fixed')
 
-      t.equal(c2.id, shas.get(shas.size - 2))
+      t.equal(c2.id, shas.get(shas.size - 2).or_panic)
       t.equal(c2.subject, 'Bar')
       t.equal(c2.category, 'added')
     })
@@ -76,10 +76,12 @@ fn pub tests(t: mut Tests) {
 
   t.test('Repository.reverted_commits', fn (t) {
     with_repository(t.id, fn (repo, shas) {
-      let reverted = repo.reverted_commits(shas.last.get, shas.get(0)).ok
+      let reverted = repo
+        .reverted_commits(shas.last.get, shas.get(0).or_panic)
+        .ok
       let exp = Set.new
 
-      exp.insert(shas.get(2))
+      exp.insert(shas.get(2).or_panic)
       t.equal(reverted, Option.Some(exp))
     })
   })

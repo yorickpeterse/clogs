@@ -38,9 +38,9 @@ type Release {
   }
 
   fn mut add(commit: Commit) {
-    match @commits.opt_mut(commit.category) {
-      case Some(v) -> v.push(commit)
-      case None -> @commits.set(commit.category, [commit])
+    match @commits.get_mut(commit.category) {
+      case Ok(v) -> v.push(commit)
+      case _ -> @commits.set(commit.category, [commit])
     }
   }
 }
@@ -56,20 +56,20 @@ impl ToString for Release {
       return markdown.into_string
     }
 
-    @config.categories.iter.each(fn (pair) {
-      let commits = match @commits.opt(pair.key) {
-        case Some(v) if v.size > 0 -> v
-        case _ -> return
+    for (key, val) in @config.categories.iter {
+      let commits = match @commits.get(key) {
+        case Ok(v) if v.size > 0 -> v
+        case _ -> next
       }
 
-      markdown.push('\n\n### ${pair.value}\n')
+      markdown.push('\n\n### ${val}\n')
 
-      commits.iter.each(fn (c) {
+      for c in commits.iter {
         let url = @config.url.replace('%s', c.id)
 
         markdown.push('\n- [${c.subject}](${url})')
-      })
-    })
+      }
+    }
 
     markdown.into_string
   }
@@ -83,7 +83,7 @@ type Changelog {
     let data = if path.file? {
       let buf = ByteArray.new
 
-      try ReadOnlyFile.new(path.clone).then(fn (f) { f.read_all(buf) })
+      try ReadOnlyFile.new(path).then(fn (f) { f.read_all(buf) })
       buf.into_string
     } else {
       DEFAULT_CHANGELOG
@@ -94,20 +94,23 @@ type Changelog {
 
   fn pub mut add(release: ref Release) {
     let prev_idx = match release.previous_version {
-      case Some(v) -> @data.byte_index(of: '## ${v} (', starting_at: 0).or(-1)
+      case Some(v) -> @data.index_of(value: '## ${v} (', starting_at: 0).or(-1)
       case _ -> -1
     }
 
     @data = if prev_idx >= 0 {
-      let new = @data.slice(start: 0, size: prev_idx - 1)
+      let new = @data.slice(start: 0, end: prev_idx).to_byte_array
 
-      if new.size > 0 { new.push(LF) }
+      # Ensure that the existing and new content are separated by exactly one
+      # empty line.
+      while new.last.or(-1) == LF { new.pop }
 
-      new.append(release.to_string.to_byte_array)
-      new.push(LF)
-      new.push(LF)
-      new.append(@data.slice(start: prev_idx, size: @data.size - prev_idx))
-      new.into_string
+      if new.size > 0 { new.append('\n\n') }
+
+      new.append(release.to_string)
+      new.append('\n\n')
+      new.append(@data.slice(start: prev_idx, end: @data.size))
+      new.to_string
     } else {
       let sep = if @data.empty? {
         ''
@@ -122,8 +125,8 @@ type Changelog {
   }
 
   fn pub mut save -> Result[Nil, Error] {
-    WriteOnlyFile.new(@path.clone).then(fn (f) {
-      try f.write_string(@data)
+    WriteOnlyFile.new(@path).then(fn (f) {
+      try f.write(@data)
       Result.Ok(nil)
     })
   }

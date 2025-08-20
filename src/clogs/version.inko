@@ -36,10 +36,11 @@ type copy Version {
       })
       .to_array
 
-    if chunks.size == 3 {
-      Option.Some(new(chunks.get(0), chunks.get(1), chunks.get(2)))
-    } else {
-      Option.None
+    match (chunks.get(0), chunks.get(1), chunks.get(2)) {
+      case (Ok(a), Ok(b), Ok(c)) if chunks.size == 3 -> {
+        Option.Some(new(a, b, c))
+      }
+      case _ -> Option.None
     }
   }
 

@@ -69,14 +69,14 @@ type Config {
       url: DEFAULT_URL,
       changelog: DEFAULT_CHANGELOG.to_path,
       categories: DEFAULT_CATEGORIES.iter.reduce(Map.new, fn (map, pair) {
-        map.set(pair.get(0), pair.get(1))
+        map.set(pair.get(0).or_panic, pair.get(1).or_panic)
         map
       }),
     )
   }
 
   fn static load(path: ref Path) -> Result[Config, Error] {
-    let file = try ReadOnlyFile.new(path.clone).map_error(fn (e) {
+    let file = try ReadOnlyFile.new(path).map_error(fn (e) {
       Error.InvalidFile(e)
     })
 
@@ -86,21 +86,21 @@ type Config {
       case Error(e) -> throw Error.InvalidSyntax(e.to_string)
     }
 
-    let url = match doc.opt('url') {
-      case Some(String(val)) if val.size > 0 -> val
+    let url = match doc.get('url') {
+      case Ok(String(val)) if val.size > 0 -> val
       case _ -> throw Error.InvalidUrl
     }
 
-    let changelog = match doc.opt('changelog') {
-      case Some(String(val)) if val.size > 0 -> val.to_path
+    let changelog = match doc.get('changelog') {
+      case Ok(String(val)) if val.size > 0 -> val.to_path
       case _ -> throw Error.InvalidChangelogPath
     }
 
-    let cats = match doc.opt('categories') {
-      case Some(Object(map)) -> {
-        try map.iter.try_reduce(Map.new, fn (map, kv) {
-          match kv.value {
-            case String(v) -> map.set(kv.key, v)
+    let cats = match doc.get('categories') {
+      case Ok(Object(map)) -> {
+        try map.iter.try_reduce(Map.new, fn (map, pair) {
+          match pair {
+            case (k, String(v)) -> map.set(k, v)
             case _ -> throw Error.InvalidCategories
           }
 
@@ -116,7 +116,7 @@ type Config {
   fn save(path: ref Path) -> Result[Nil, IoError] {
     let root = Map.new
     let cats = @categories.iter.reduce(Map.new, fn (map, pair) {
-      map.set(pair.key, Json.String(pair.value))
+      map.set(pair.0, Json.String(pair.1))
       map
     })
 
@@ -126,8 +126,6 @@ type Config {
 
     let out = Json.Object(root).to_pretty_string
 
-    WriteOnlyFile.new(path.clone).then(fn (f) { f.write_string(out) }).map(
-      fn (_) { nil },
-    )
+    WriteOnlyFile.new(path).then(fn (f) { f.write(out) }).map(fn (_) { nil })
   }
 }

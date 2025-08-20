@@ -25,9 +25,12 @@ fn pub tests(t: mut Tests) {
     t.equal(conf.url, DEFAULT_URL)
     t.equal(conf.changelog, DEFAULT_CHANGELOG.to_path)
 
-    DEFAULT_CATEGORIES.iter.each(fn (pair) {
-      t.equal(conf.categories.opt(pair.get(0)), Option.Some(pair.get(1)))
-    })
+    for pair in DEFAULT_CATEGORIES.iter {
+      let key = pair.get(0).or_panic
+      let title = pair.get(1).or_panic
+
+      t.equal(conf.categories.get(key), Result.Ok(title))
+    }
   })
 
   t.test('Config.load with a valid configuration file', fn (t) {
@@ -42,7 +45,7 @@ fn pub tests(t: mut Tests) {
       t.equal(conf.url, 'a')
       t.equal(conf.changelog, 'a.md'.to_path)
       t.equal(conf.categories.size, 1)
-      t.equal(conf.categories.opt('added'), Option.Some('Added'))
+      t.equal(conf.categories.get('added'), Result.Ok('Added'))
 
       path.remove_file.get
     })

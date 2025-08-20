@@ -6,21 +6,20 @@ DATADIR := ${PREFIX}/share
 	@test $${VERSION?The VERSION variable must be set}
 
 build:
-	inko pkg sync
-	inko build -o ./build/clogs
+	inko build --release
 
 install: build
-	install -D --mode=755 build/clogs ${DESTDIR}${BINDIR}/clogs
+	install -D --mode=755 build/release/clogs ${DESTDIR}${BINDIR}/clogs
 
 uninstall:
 	rm --force ${BINDIR}/clogs
 
 release/version: .check-version
 	sed -E -i -e "s/^let VERSION = '([^']+)'$$/let VERSION = '${VERSION}'/" \
-		src/clogs/cli.inko
+		src/clogs.inko
 
 release/changelog: .check-version build
-	./build/clogs "${VERSION}"
+	./build/release/clogs "${VERSION}"
 
 release/commit: .check-version
 	git add .

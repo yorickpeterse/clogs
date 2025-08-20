@@ -49,7 +49,7 @@ impl ToString for Error {
 # The produced lines _don't_ include the trailing newline.
 type inline Output {
   let @child: sys.ChildProcess
-  let @stdout: BufferedReader[sys.Stdout]
+  let @stdout: BufferedReader[sys.Stdout, IoError]
   let @buffer: ByteArray
 
   fn static new(child: sys.ChildProcess) -> Output {
@@ -87,7 +87,9 @@ type Commit {
     let cat = try chunks.next
     let sub = try chunks.next
 
-    (cat != '').then(fn { Commit(id: id, category: cat, subject: sub) })
+    cat.equals?('').false?.then(fn {
+      Commit(id: id.to_string, category: cat.to_string, subject: sub.to_string)
+    })
   }
 }
 
@@ -141,12 +143,12 @@ type inline Repository {
       iter.reduce(Set.new, fn (set, line) {
         if line.starts_with?(REVERT_TEXT).false? { return set }
 
-        let sha = line
-          .slice(start: REVERT_TEXT.size, size: SHA_SIZE)
-          .into_string
+        let start = REVERT_TEXT.size
+        let end = start + SHA_SIZE
 
-        if sha.size == SHA_SIZE { set.insert(sha) }
+        if line.size < end { return set }
 
+        set.insert(line.slice(start, end).to_string)
         set
       })
     })

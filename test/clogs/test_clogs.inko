@@ -1,0 +1,108 @@
+import clogs
+import clogs.config (CONFIG_FILE, Config)
+import clogs.git (Repository)
+import clogs.helpers (read, with_directory, with_repository)
+import std.test (Tests)
+
+fn pub tests(t: mut Tests) {
+  t.fork(
+    'clogs.run with the help flag',
+    child: fn { clogs.run(['--help'], '.'.to_path) },
+    test: fn (t, p) {
+      t.true(p.spawn.stdout.contains?('Show this help message'))
+    },
+  )
+
+  t.fork(
+    'clogs.run without any arguments',
+    child: fn { clogs.run([], '.'.to_path) },
+    test: fn (t, p) {
+      t.true(p.spawn.stdout.contains?('Show this help message'))
+    },
+  )
+
+  t.fork(
+    'clogs.run with the version flag',
+    child: fn { clogs.run(['--version'], '.'.to_path) },
+    test: fn (t, p) { t.true(p.spawn.stdout.contains?('clogs')) },
+  )
+
+  t.test('clogs.run with an invalid option', fn (t) {
+    t.true(clogs.run(['--foobar'], '.'.to_path).error?)
+  })
+
+  t.test('clogs.run with the "init" command', fn (t) {
+    with_directory(t.id, fn (path) {
+      t.true(clogs.run(['init'], path).ok?)
+      t.true(path.join(CONFIG_FILE).file?)
+    })
+  })
+
+  t.test(
+    'clogs.run with the "init" command and an existing configuration',
+    fn (t) {
+      with_directory(t.id, fn (path) {
+        Config.default.save(path.join(CONFIG_FILE)).get
+        t.true(clogs.run(['init'], path).error?)
+      })
+    },
+  )
+
+  t.test('clogs.run with an invalid version', fn (t) {
+    with_directory(t.id, fn (path) { t.true(clogs.run(['a.b.c'], path).error?) })
+  })
+
+  t.test('clogs.run with a valid untagged version', fn (t) {
+    with_repository(t.id, fn (repo, _) {
+      Config.default.save(repo.path.join(CONFIG_FILE)).get
+      t.true(clogs.run(['1.0.0'], repo.path).ok?)
+
+      let changelog = read(repo.path.join('CHANGELOG.md'))
+
+      t.true(changelog.contains?('Bar'))
+      t.false(changelog.contains?('Foo'))
+      t.false(changelog.contains?('Baz'))
+    })
+  })
+
+  t.test('clogs.run with an already tagged version', fn (t) {
+    with_repository(t.id, fn (repo, _) {
+      Config.default.save(repo.path.join(CONFIG_FILE)).get
+
+      let _ = repo.run('tag', ['1.0.0']).get
+
+      t.true(clogs.run(['1.0.0'], repo.path).ok?)
+
+      let changelog = read(repo.path.join('CHANGELOG.md'))
+
+      t.true(changelog.contains?('Bar'))
+      t.false(changelog.contains?('Foo'))
+      t.false(changelog.contains?('Baz'))
+    })
+  })
+
+  t.test('clogs.run with an invalid configuration file', fn (t) {
+    with_directory(t.id, fn (path) {
+      t.true(
+        clogs.run(['--config', 'clogs-invalid.json', '1.0.0'], path).error?,
+      )
+    })
+  })
+
+  t.test('clogs.run with an invalid Git repository', fn (t) {
+    with_directory(t.id, fn (path) {
+      Config.default.save(path.join(CONFIG_FILE)).get
+      t.true(clogs.run(['1.0.0'], path).error?)
+    })
+  })
+
+  t.test('clogs.run with an empty repository', fn (t) {
+    with_directory(t.id, fn (path) {
+      Config.default.save(path.join(CONFIG_FILE)).get
+
+      let _ = Repository.new(path).run('init', []).get
+
+      t.true(clogs.run(['1.0.0'], path).error?)
+    })
+  })
+}

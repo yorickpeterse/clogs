@@ -34,7 +34,7 @@ fn pub tests(t: mut Tests) {
     rel.add(Commit(id: '123', subject: 'foo', category: 'added'))
     rel.add(Commit(id: '456', subject: 'bar', category: 'added'))
 
-    t.equal(rel.commits.opt('added').map(fn (v) { v.size }), Option.Some(2))
+    t.equal(rel.commits.get('added').map(fn (v) { v.size }), Result.Ok(2))
   })
 
   t.test('Release.to_string with an empty release', fn (t) {
@@ -182,6 +182,45 @@ Foo',
 Foo',
     )
   })
+
+  t.test(
+    'Changelog.add with existing release trims excessive empty lines',
+    fn (t) {
+      let cfg = config
+      let rel = release(cfg)
+
+      rel.add(Commit(id: '1234567890', subject: 'a', category: 'added'))
+
+      let log = Changelog(
+        path: 'CHANGELOG.md'.to_path,
+        data: '# Changelog
+
+
+
+
+
+## 1.0.0 (2023-08-01)
+
+Foo',
+      )
+
+      log.add(rel)
+      t.equal(
+        log.data,
+        '# Changelog
+
+## 1.0.1 (2023-08-05)
+
+### Added
+
+- [a](a/1234567890)
+
+## 1.0.0 (2023-08-01)
+
+Foo',
+      )
+    },
+  )
 
   t.test(
     'Changelog.add with existing release at the start of the file',

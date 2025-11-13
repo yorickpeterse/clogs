@@ -4,12 +4,12 @@ import std.fs.file (ReadOnlyFile, WriteOnlyFile)
 import std.fs.path (Path)
 
 fn write(path: ref Path, content: String) {
-  WriteOnlyFile.new(path.clone).then(fn (f) { f.write_string(content) }).get
+  WriteOnlyFile.new(path).then(fn (f) { f.write(content) }).get
 }
 
 fn read(path: ref Path) -> String {
   let buf = ByteArray.new
-  let _ = ReadOnlyFile.new(path.clone).then(fn (f) { f.read_all(buf) }).get
+  let _ = ReadOnlyFile.new(path).then(fn (f) { f.read_all(buf) }).get
 
   buf.into_string
 }

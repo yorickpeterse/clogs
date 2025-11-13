@@ -36,10 +36,11 @@ type copy Version {
       })
       .to_array
 
-    if chunks.size == 3 {
-      Option.Some(new(chunks.get(0), chunks.get(1), chunks.get(2)))
-    } else {
-      Option.None
+    match (chunks.get(0), chunks.get(1), chunks.get(2)) {
+      case (Ok(a), Ok(b), Ok(c)) if chunks.size == 3 -> {
+        Option.Some(new(a, b, c))
+      }
+      case _ -> Option.None
     }
   }
 
@@ -59,13 +60,13 @@ impl ToString for Version {
 }
 
 impl Equal for Version {
-  fn pub ==(other: ref Version) -> Bool {
+  fn pub ==(other: Version) -> Bool {
     @major == other.major and @minor == other.minor and @patch == other.patch
   }
 }
 
 impl Compare for Version {
-  fn pub cmp(other: ref Version) -> Ordering {
+  fn pub cmp(other: Version) -> Ordering {
     match @major.cmp(other.major) {
       case Equal -> {
         match @minor.cmp(other.minor) {

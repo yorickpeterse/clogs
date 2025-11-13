@@ -9,7 +9,7 @@ import std.stdio (Stderr, Stdout)
 import std.sys (exit)
 import std.time (DateTime)
 
-let VERSION = '0.9.0'
+let VERSION = '0.10.0'
 
 fn pub run(
   arguments: Array[String],

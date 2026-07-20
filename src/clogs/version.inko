@@ -2,7 +2,6 @@
 import std.clone (Clone)
 import std.cmp (Compare, Equal, Ordering)
 import std.fmt (Format as FormatTrait, Formatter)
-import std.int (Format)
 import std.string (ToString)
 
 # A type that represents a version number, per semantic versioning
@@ -32,7 +31,7 @@ type copy Version {
 
         if v.starts_with?('+') or v.starts_with?('-') { return Option.None }
 
-        Int.parse(v, Format.Decimal)
+        Int.parse(v, base: 10)
       })
       .to_array
 

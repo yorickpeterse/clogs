@@ -2,7 +2,7 @@
 import clogs.version (Version)
 import std.fs.path (Path)
 import std.io (BufferedReader, Error as IoError)
-import std.iter (Iter, Stream)
+import std.iter (Iter)
 import std.set (Set)
 import std.string (ToString)
 import std.sys
@@ -87,9 +87,11 @@ type Commit {
     let cat = try chunks.next
     let sub = try chunks.next
 
-    (!cat.equals?('')).then(fn {
-      Commit(id: id.to_string, category: cat.to_string, subject: sub.to_string)
-    })
+    if id.empty? or cat.empty? or sub.empty? { return Option.None }
+
+    Option.Some(
+      Commit(id: id.to_string, category: cat.to_string, subject: sub.to_string),
+    )
   }
 }
 
@@ -100,8 +102,8 @@ type inline Repository {
     Repository(path.clone)
   }
 
-  fn versions -> Result[Stream[Version], Error] {
-    run('tag', []).map(fn (i) { i.select_map(fn (n) { Version.from_tag(n) }) })
+  fn versions -> Result[Versions, Error] {
+    run('tag', []).map(fn (i) { Versions(i) })
   }
 
   fn first_commit -> Result[String, Error] {
@@ -109,10 +111,7 @@ type inline Repository {
     run('rev-list', ['--max-parents=0', 'HEAD']).map(fn (i) { i.next.get })
   }
 
-  fn changelog_commits(
-    start: String,
-    end: String,
-  ) -> Result[Stream[Commit], Error] {
+  fn changelog_commits(start: String, end: String) -> Result[Commits, Error] {
     run(
       'log',
       [
@@ -122,13 +121,11 @@ type inline Repository {
         '--grep=${TRAILER}:',
       ],
     )
-      .map(fn (iter) { iter.select_map(fn (line) { Commit.parse(line) }) })
+      .map(fn (i) { Commits(i) })
   }
 
-  fn reverted_commits(
-    start: String,
-    end: String,
-  ) -> Result[Set[String], Error] {
+  fn reverted_commits(start: String, end: String) -> Result[Set[String], Error]
+  {
     let out = run(
       'log',
       [
@@ -191,6 +188,34 @@ type inline Repository {
       }
 
       Result.Error(Error.Exit(message))
+    }
+  }
+}
+
+type inline Commits {
+  let @output: Output
+}
+
+impl Iter[Commit] for Commits {
+  fn pub mut next -> Option[Commit] {
+    loop {
+      let Some(c) = Commit.parse(try @output.next) else next
+
+      return Option.Some(c)
+    }
+  }
+}
+
+type inline Versions {
+  let @output: Output
+}
+
+impl Iter[Version] for Versions {
+  fn pub mut next -> Option[Version] {
+    loop {
+      let Some(v) = Version.from_tag(try @output.next) else next
+
+      return Option.Some(v)
     }
   }
 }

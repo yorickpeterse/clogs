@@ -15,7 +15,7 @@ jobs:
       image: ghcr.io/inko-lang/inko:latest
     steps:
       - run: microdnf install --quiet --assumeyes tar git
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - run: inko --version
       - run: inko fmt --check
 
@@ -25,7 +25,7 @@ jobs:
       image: ghcr.io/inko-lang/inko:latest
     steps:
       - run: microdnf install --quiet --assumeyes tar git
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - name: Configuring Git
         run: |
           git config --global user.email git@example.com

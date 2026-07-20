@@ -1,6 +1,12 @@
 <!-- This changelog is managed by https://github.com/yorickpeterse/clogs -->
 # Changelog
 
+## 0.11.0 (2026-07-20)
+
+### Changed
+
+- [Upgrade to Inko 0.21.0](https://github.com/yorickpeterse/clogs/commit/27d37237e5194db3445714d7fa440291876cba62)
+
 ## 0.10.0 (2025-11-13)
 
 ### Changed

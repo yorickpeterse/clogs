@@ -12,20 +12,18 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/inko-lang/inko:latest
+      image: ghcr.io/inko-lang/inko:main
     steps:
-      - run: microdnf install --quiet --assumeyes tar git
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - run: inko --version
       - run: inko fmt --check
 
   test:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/inko-lang/inko:latest
+      image: ghcr.io/inko-lang/inko:main
     steps:
-      - run: microdnf install --quiet --assumeyes tar git
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Configuring Git
         run: |
           git config --global user.email git@example.com

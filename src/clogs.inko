@@ -2,9 +2,10 @@ import clogs.changelog (Changelog, Release)
 import clogs.config (CONFIG_FILE, Config)
 import clogs.git (Repository)
 import clogs.version (Version)
-import std.env (arguments, working_directory)
+import std.env
 import std.fs.path (Path)
 import std.optparse (Options)
+import std.sandbox (Sandbox, execute, read, write)
 import std.stdio (Stderr, Stdout)
 import std.sys (exit)
 import std.time (DateTime)
@@ -14,6 +15,7 @@ let VERSION = '0.11.0'
 fn pub run(
   arguments: Array[String],
   working_directory: ref Path,
+  sandbox: Bool,
 ) -> Result[Nil, String] {
   let output = Stdout.new
   let opts = Options.new('clogs')
@@ -53,14 +55,20 @@ fn pub run(
       Result.Error("the configuration file '${config_path}' already exists")
     }
     case Ok('init') -> {
-      Config.default.save(config_path).map_error(fn (e) {
+      Config.default(working_directory).save(config_path).map_error(fn (e) {
         'failed to generate the configuration file: ${e}'
       })
     }
     case Ok(val) -> {
       match Version.parse(val) {
         case Some(version) -> {
-          update(config_path, version, matches.value('end').or('HEAD'))
+          update(
+            config_path,
+            version,
+            matches.value('end').or('HEAD'),
+            working_directory,
+            sandbox,
+          )
         }
         case _ -> Result.Error('a version in the format X.Y.Z is required')
       }
@@ -77,11 +85,15 @@ fn update(
   config_path: Path,
   version: Version,
   end: String,
+  working_directory: ref Path,
+  sandbox: Bool,
 ) -> Result[Nil, String] {
   let config = match Config.load(config_path) {
     case Ok(v) -> v
     case Error(e) -> throw 'failed to read ${config_path}: ${e}'
   }
+
+  if sandbox { enable_sandbox(config, working_directory) }
 
   let config_dir = config_path.directory
   let repo = Repository.new(config_dir)
@@ -131,11 +143,38 @@ fn update(
   changelog.save.map_error(fn (e) { 'failed to update ${out_path}: ${e}' })
 }
 
+fn enable_sandbox(config: ref Config, working_directory: ref Path) {
+  let s = Sandbox.new
+
+  # Git may read its configuration from different locations, so we need to give
+  # read access to any such directory or file.
+  for path in config.git.configs.iter { s.path(path, read) }
+
+  # We'll need access to the .git directory itself, obviously.
+  let git = working_directory.join('.git')
+
+  if git.directory? { s.path(git, read) }
+
+  # If the changelog doesn't exist we have to give access to its directory so we
+  # can create it, as we can't apply sandbox rules to non-existing files.
+  let out = config.changelog
+
+  if out.file? {
+    s.path(out, read + write)
+  } else {
+    s.path(out.directory, read + write)
+  }
+
+  if config.git.executable.file? { s.path(config.git.executable, execute) }
+
+  s.enable
+}
+
 type async Main {
   fn async main {
-    let pwd = working_directory.or_else(fn (_) { '.'.to_path })
+    let pwd = env.working_directory.or_else(fn (_) { '.'.to_path })
 
-    match run(arguments, pwd) {
+    match run(env.arguments, pwd, sandbox: true) {
       case Ok(_) -> {}
       case Error(e) -> {
         let err = Stderr.new

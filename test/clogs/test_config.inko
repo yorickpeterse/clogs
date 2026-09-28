@@ -1,8 +1,9 @@
 import clogs.config (
-  Config, DEFAULT_CATEGORIES, DEFAULT_CHANGELOG, DEFAULT_URL, Error,
+  Config, DEFAULT_CATEGORIES, DEFAULT_CHANGELOG, DEFAULT_URL, Error, Git,
 )
-import clogs.helpers (with_file_path, write)
+import clogs.helpers (with_directory, with_file_path, write)
 import std.io
+import std.stdio (Stdout)
 import std.test (Tests)
 
 fn pub tests(t: mut Tests) {
@@ -19,11 +20,65 @@ fn pub tests(t: mut Tests) {
     t.true(Error.InvalidCategories.to_string.size > 0)
   })
 
+  t.test('Git.new', fn (t) {
+    let git = Git.new
+
+    t.true(git.executable.file?)
+  })
+
+  t.fork(
+    'Git.new with XDG_CONFIG_HOME set to an existing directory',
+    child: fn {
+      let git = Git.new
+      let out = Stdout.new
+
+      for path in git.configs.iter { out.print(path.to_string) }
+    },
+    test: fn (t, p) {
+      let mut p = Option.Some(p)
+
+      with_directory(t.id, fn move (path) {
+        let p = (p := Option.None).get
+        let conf = path.join('git')
+        let _ = conf.create_directory
+
+        p.variable('XDG_CONFIG_HOME', path.to_string)
+
+        let child = p.spawn
+
+        t.equal(child.status.to_int, 0)
+        t.true(child.stdout.contains?(conf.to_string))
+        t.equal(child.stderr, '')
+      })
+    },
+  )
+
+  t.fork(
+    'Git.new with XDG_CONFIG_HOME set to a non-existing directory',
+    child: fn {
+      let git = Git.new
+      let out = Stdout.new
+
+      for path in git.configs.iter { out.print(path.to_string) }
+    },
+    test: fn (t, p) {
+      let conf = '/kitten-mittens'
+
+      p.variable('XDG_CONFIG_HOME', conf)
+
+      let child = p.spawn
+
+      t.equal(child.status.to_int, 0)
+      t.false(child.stdout.contains?(conf))
+      t.equal(child.stderr, '')
+    },
+  )
+
   t.test('Config.default', fn (t) {
-    let conf = Config.default
+    let conf = Config.default('foo'.to_path)
 
     t.equal(conf.url, DEFAULT_URL)
-    t.equal(conf.changelog, DEFAULT_CHANGELOG.to_path)
+    t.equal(conf.changelog, 'foo'.to_path.join(DEFAULT_CHANGELOG))
 
     for pair in DEFAULT_CATEGORIES.iter {
       let key = pair.get(0).or_panic
@@ -118,7 +173,7 @@ fn pub tests(t: mut Tests) {
 
   t.test('Config.save with a valid path', fn (t) {
     with_file_path(t.id, fn (path) {
-      let conf = Config.default
+      let conf = Config.default(path)
 
       t.true(conf.save(path).ok?)
 
@@ -132,7 +187,7 @@ fn pub tests(t: mut Tests) {
 
   t.test('Config.save with an invalid path', fn (t) {
     with_file_path(t.id, fn (path) {
-      t.true(Config.default.save(path.join('parent-is-missing')).error?)
+      t.true(Config.default(path).save(path.join('parent-is-missing')).error?)
     })
   })
 }

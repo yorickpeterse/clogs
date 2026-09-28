@@ -7,7 +7,7 @@ import std.test (Tests)
 import std.time (Date, DateTime, Time)
 
 fn config -> Config {
-  let conf = Config.default
+  let conf = Config.default('.'.to_path)
 
   conf.url = 'a/%s'
   conf

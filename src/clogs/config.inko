@@ -1,3 +1,4 @@
+import std.env
 import std.fs.file (ReadOnlyFile, WriteOnlyFile)
 import std.fs.path (Path)
 import std.io (Error as IoError)
@@ -21,6 +22,19 @@ let DEFAULT_CATEGORIES = [
   ['performance', 'Performance improvements'],
   ['other', 'Other'],
 ]
+
+fn git_executable -> Path {
+  let default = 'git'.to_path
+  let Ok(path) = env.get('PATH') else return default
+
+  for dir in path.split(':') {
+    let exe = dir.to_string.to_path.join('git')
+
+    if exe.file? { return exe }
+  }
+
+  default
+}
 
 type inline enum Error {
   # The configuration file couldn't be loaded (e.g. it doesn't exist).
@@ -59,19 +73,41 @@ impl ToString for Error {
   }
 }
 
+type inline Git {
+  let @executable: Path
+  let @configs: Array[Path]
+
+  fn static new -> Git {
+    let etc = '/etc/gitconfig'.to_path
+    let xdg = env.get('XDG_CONFIG_HOME').or('~/.config').to_path.join('git')
+    let dot = '~/.gitconfig'.to_path
+
+    # Not all these configuration files/directories may exist, so we only add
+    # those that do.
+    let configs = [etc, xdg, dot]
+      .into_iter
+      .select_map(fn (v) { v.expand.ok })
+      .to_array
+
+    Self(executable: git_executable, configs: configs)
+  }
+}
+
 type Config {
   let mut @url: String
   let @changelog: Path
   let @categories: Map[String, String]
+  let @git: Git
 
-  fn static default -> Config {
+  fn static default(working_directory: ref Path) -> Config {
     Config(
       url: DEFAULT_URL,
-      changelog: DEFAULT_CHANGELOG.to_path,
+      changelog: working_directory.join(DEFAULT_CHANGELOG),
       categories: DEFAULT_CATEGORIES.iter.reduce(Map.new, fn (map, pair) {
         map.set(pair.get(0).or_panic, pair.get(1).or_panic)
         map
       }),
+      git: Git.new,
     )
   }
 
@@ -110,7 +146,9 @@ type Config {
       case _ -> throw Error.InvalidCategories
     }
 
-    Result.Ok(Config(url: url, changelog: changelog, categories: cats))
+    Result.Ok(
+      Config(url: url, changelog: changelog, categories: cats, git: Git.new),
+    )
   }
 
   fn save(path: ref Path) -> Result[Nil, IoError] {

@@ -10,7 +10,7 @@ concurrency:
 
 jobs:
   fmt:
-    runs-on: codeberg-small
+    runs-on: home-linux-amd64
     container:
       image: ghcr.io/inko-lang/inko:main
     steps:
@@ -19,7 +19,7 @@ jobs:
       - run: inko fmt --check
 
   test:
-    runs-on: codeberg-small
+    runs-on: home-linux-amd64
     container:
       image: ghcr.io/inko-lang/inko:main
     steps:

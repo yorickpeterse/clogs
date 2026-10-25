@@ -1,5 +1,7 @@
 # clogs
 
+**NOTE:** development now takes place on [Codeberg](https://codeberg.org/yorickpeterse/clogs).
+
 clogs (short for **c**hange**logs**) is a tool for generating a Markdown
 changelog, populating the changelog from Git commits containing
 [trailers](https://git-scm.com/docs/git-interpret-trailers). The approach is

@@ -6,7 +6,7 @@ import std.json (Json)
 import std.string (ToString)
 
 # The URL to use when creating a default configuration file.
-let DEFAULT_URL = 'https://github.com/OWNER/PROJECT/commit/%s'
+let DEFAULT_URL = 'https://HOST/OWNER/PROJECT/commit/%s'
 
 # The default file name of the configuration file.
 let CONFIG_FILE = 'clogs.json'

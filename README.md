@@ -37,7 +37,7 @@ format:
 
 ```json
 {
-  "url": "https://github.com/yorickpeterse/clogs/commit/%s",
+  "url": "https://codeberg.org/yorickpeterse/clogs/commit/%s",
   "changelog": "CHANGELOG.md",
   "categories": {
     "added": "Added",

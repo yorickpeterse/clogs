@@ -8,7 +8,7 @@ import std.string (StringBuffer, ToString)
 import std.time (DateTime)
 
 let LF = 10
-let DEFAULT_CHANGELOG = '<!-- This changelog is managed by https://github.com/yorickpeterse/clogs -->
+let DEFAULT_CHANGELOG = '<!-- This changelog is managed by https://codeberg.org/yorickpeterse/clogs -->
 # Changelog'
 
 fn format_date(date: DateTime) -> String {
